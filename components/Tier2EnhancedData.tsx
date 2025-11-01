@@ -49,8 +49,8 @@ export function ReviewInsightsSection({ intelligence }: { intelligence?: ReviewI
       <div className="mb-6">
         <div className="flex items-center gap-3">
           <div className="text-3xl">
-            {intelligence.sentiment_score >= 0.7 ? '😊' : 
-             intelligence.sentiment_score >= 0.5 ? '🙂' : '😐'}
+            {(intelligence.sentiment_score ?? 0) >= 0.7 ? '😊' : 
+             (intelligence.sentiment_score ?? 0) >= 0.5 ? '🙂' : '😐'}
           </div>
           <div>
             <div className="text-2xl font-bold text-gray-900">
