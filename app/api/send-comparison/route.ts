@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { render } from '@react-email/render';
+import { ComparisonEmailTemplate } from '@/emails/comparison-template';
 
 export async function POST(request: Request) {
   try {
@@ -128,8 +130,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Step 4: Generate email HTML
-    const emailHTML = generateComparisonEmailHTML(clinics, name);
+    // Step 4: Generate email HTML using React Email template
+    const emailHTML = render(
+      ComparisonEmailTemplate({ 
+        clinics: clinics,
+        userName: name 
+      })
+    );
 
     // Step 5: Send email using Resend
     try {
@@ -199,168 +206,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
-
-// Helper function to generate email HTML
-function generateComparisonEmailHTML(clinics: any[], userName: string): string {
-  const siteUrl = 'https://dermaclinicnearme.com';
-  
-  // Sort clinics by rating (highest first) to highlight the top one
-  const sortedClinics = [...clinics].sort((a, b) => {
-    const ratingA = a.rating || 0;
-    const ratingB = b.rating || 0;
-    return ratingB - ratingA;
-  });
-
-  const topClinic = sortedClinics[0];
-
-  const clinicCardsHTML = sortedClinics.map((clinic, index) => {
-    const rating = clinic.rating || 0;
-    const reviews = clinic.user_rating_count || 0;
-    const isTopRated = clinic.place_id === topClinic.place_id && sortedClinics.length > 1;
-    
-    return `
-      <div style="background-color: ${isTopRated ? '#f0f9ff' : '#ffffff'}; 
-                  border: ${isTopRated ? '2px solid #2563eb' : '1px solid #e5e7eb'}; 
-                  border-radius: 8px; 
-                  padding: 20px; 
-                  margin-bottom: 16px;">
-        ${isTopRated ? `
-          <div style="background-color: #2563eb; color: white; display: inline-block; 
-                      padding: 4px 12px; border-radius: 4px; font-size: 12px; 
-                      font-weight: 600; margin-bottom: 12px;">
-            ⭐ TOP RATED
-          </div>
-        ` : ''}
-        
-        <h3 style="margin: 0 0 12px 0; color: #111827; font-size: 18px; font-weight: 600;">
-          ${index + 1}. ${clinic.display_name}
-        </h3>
-        
-        <div style="display: flex; align-items: center; margin-bottom: 12px;">
-          <span style="color: #fbbf24; font-size: 18px; margin-right: 8px;">
-            ${'★'.repeat(Math.round(rating))}${'☆'.repeat(5 - Math.round(rating))}
-          </span>
-          <span style="color: #6b7280; font-size: 14px;">
-            ${rating.toFixed(1)} (${reviews} reviews)
-          </span>
-        </div>
-
-        ${clinic.formatted_address ? `
-          <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
-            📍 ${clinic.formatted_address}
-          </p>
-        ` : ''}
-
-        ${clinic.phone ? `
-          <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
-            📞 ${clinic.phone}
-          </p>
-        ` : ''}
-
-        ${clinic.intelligence_scores?.overall_score ? `
-          <div style="margin: 12px 0;">
-            <div style="background-color: #f3f4f6; border-radius: 4px; height: 8px; overflow: hidden;">
-              <div style="background-color: #10b981; height: 100%; width: ${clinic.intelligence_scores.overall_score}%;"></div>
-            </div>
-            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 12px;">
-              Quality Score: ${clinic.intelligence_scores.overall_score}%
-            </p>
-          </div>
-        ` : ''}
-
-        ${clinic.services && clinic.services.length > 0 ? `
-          <div style="margin: 12px 0;">
-            <p style="margin: 0 0 8px 0; color: #374151; font-size: 14px; font-weight: 500;">
-              Services:
-            </p>
-            <div>
-              ${clinic.services.slice(0, 4).map((service: string) => `
-                <span style="display: inline-block; background-color: #e5e7eb; color: #374151; 
-                            padding: 4px 8px; border-radius: 4px; font-size: 12px; margin: 2px;">
-                  ${service}
-                </span>
-              `).join('')}
-              ${clinic.services.length > 4 ? `
-                <span style="color: #6b7280; font-size: 12px;">
-                  +${clinic.services.length - 4} more
-                </span>
-              ` : ''}
-            </div>
-          </div>
-        ` : ''}
-
-        ${clinic.website ? `
-          <a href="${clinic.website}" 
-             style="display: inline-block; margin-top: 12px; padding: 8px 16px; 
-                    background-color: #2563eb; color: white; text-decoration: none; 
-                    border-radius: 4px; font-size: 14px;">
-            Visit Website
-          </a>
-        ` : ''}
-      </div>
-    `;
-  }).join('');
-
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9fafb;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-          
-          <!-- Header -->
-          <div style="background-color: #2563eb; padding: 32px 24px; text-align: center;">
-            <h1 style="margin: 0; color: #ffffff; font-size: 24px;">
-              Your Dermatology Clinic Comparison
-            </h1>
-            <p style="margin: 8px 0 0 0; color: #bfdbfe; font-size: 14px;">
-              Requested by ${userName}
-            </p>
-          </div>
-
-          <!-- Content -->
-          <div style="padding: 32px 24px;">
-            <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px;">
-              Hi ${userName},
-            </p>
-            <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px;">
-              Here's your comparison of ${clinics.length} dermatology clinics:
-            </p>
-
-            ${clinicCardsHTML}
-
-            <div style="margin-top: 32px; padding: 20px; background-color: #f0f9ff; 
-                        border-radius: 8px; text-align: center;">
-              <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px;">
-                Ready to book an appointment?
-              </p>
-              <a href="${siteUrl}/clinics" 
-                 style="display: inline-block; padding: 12px 32px; background-color: #2563eb; 
-                        color: white; text-decoration: none; border-radius: 6px; font-size: 16px;">
-                View More Clinics
-              </a>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div style="padding: 24px; background-color: #f9fafb; text-align: center; 
-                      border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
-              This comparison was generated by 
-              <a href="${siteUrl}" style="color: #2563eb; text-decoration: none;">
-                Derm Clinics Near Me
-              </a>
-            </p>
-            <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-              © ${new Date().getFullYear()} Derm Clinics Near Me. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
 }
