@@ -5,6 +5,10 @@ import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 
+// ⬇⬇ NEW: comparison feature provider / UI bar
+import { CompareProvider } from '@/contexts/CompareContext';
+import CompareFloatingBar from '@/components/CompareFloatingBar';
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
@@ -70,8 +74,13 @@ export default function RootLayout({
         <meta name="theme-color" content="#2563eb" />
         {/* If you use a strict CSP, be sure to allow googletagmanager.com */}
       </head>
+
       <body className={inter.className}>
-        {children}
+        {/* 🔥 Global comparison state + floating bar lives here */}
+        <CompareProvider>
+          {children}
+          <CompareFloatingBar />
+        </CompareProvider>
 
         {/* Global Google Tag (GA4 + Ads) */}
         <Script
