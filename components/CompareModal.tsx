@@ -293,7 +293,7 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
 
                     <tr className="border-b border-gray-100">
                       <td className="p-4 text-gray-700 sticky left-0 bg-white z-10">
-                        Trust & Credibility
+                        Data Completeness
                       </td>
                       {clinics.map((clinic) => (
                         <td
@@ -302,7 +302,41 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
                         >
                           <span className="font-medium text-gray-900">
                             {clinic.intelligence_scores
-                              ?.trust_credibility_score || 'N/A'}
+                              ?.data_completeness_score || 'N/A'}
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
+
+                    <tr className="border-b border-gray-100">
+                      <td className="p-4 text-gray-700 sticky left-0 bg-white z-10">
+                        Service Diversity
+                      </td>
+                      {clinics.map((clinic) => (
+                        <td
+                          key={clinic.place_id}
+                          className="p-4 text-center"
+                        >
+                          <span className="font-medium text-gray-900">
+                            {clinic.intelligence_scores
+                              ?.service_diversity_score || 'N/A'}
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
+
+                    <tr className="border-b border-gray-100">
+                      <td className="p-4 text-gray-700 sticky left-0 bg-white z-10">
+                        Digital Presence
+                      </td>
+                      {clinics.map((clinic) => (
+                        <td
+                          key={clinic.place_id}
+                          className="p-4 text-center"
+                        >
+                          <span className="font-medium text-gray-900">
+                            {clinic.intelligence_scores
+                              ?.digital_presence_score || 'N/A'}
                           </span>
                         </td>
                       ))}
@@ -320,23 +354,6 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
                           <span className="font-medium text-gray-900">
                             {clinic.intelligence_scores
                               ?.patient_experience_score || 'N/A'}
-                          </span>
-                        </td>
-                      ))}
-                    </tr>
-
-                    <tr className="border-b border-gray-100">
-                      <td className="p-4 text-gray-700 sticky left-0 bg-white z-10">
-                        Convenience & Accessibility
-                      </td>
-                      {clinics.map((clinic) => (
-                        <td
-                          key={clinic.place_id}
-                          className="p-4 text-center"
-                        >
-                          <span className="font-medium text-gray-900">
-                            {clinic.intelligence_scores
-                              ?.convenience_accessibility_score || 'N/A'}
                           </span>
                         </td>
                       ))}
