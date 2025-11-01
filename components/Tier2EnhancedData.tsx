@@ -1,12 +1,12 @@
 // components/Tier2EnhancedData.tsx
 'use client';
 
-import { 
-  CompetitionMetrics, 
-  ReviewIntelligence, 
+import {
+  CompetitionMetrics,
+  ReviewIntelligence,
   RealTimeStatus,
   ConvenienceScores,
-  SocialProofExtended 
+  SocialProofExtended,
 } from '@/lib/dataTypes';
 
 // ============================================================================
@@ -17,15 +17,22 @@ export function CompetitionBadge({ metrics }: { metrics?: CompetitionMetrics }) 
   if (!metrics) return null;
 
   const getColor = () => {
-    if (metrics.rating_percentile >= 75) return 'bg-green-100 text-green-800 border-green-300';
-    if (metrics.rating_percentile >= 50) return 'bg-blue-100 text-blue-800 border-blue-300';
+    const percentile = metrics.rating_percentile ?? 0;
+    if (percentile >= 75)
+      return 'bg-green-100 text-green-800 border-green-300';
+    if (percentile >= 50)
+      return 'bg-blue-100 text-blue-800 border-blue-300';
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   return (
-    <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border-2 ${getColor()}`}>
+    <div
+      className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border-2 ${getColor()}`}
+    >
       <span className="mr-2">🏆</span>
-      <span>{metrics.market_position} in {metrics.competition_density} Competition</span>
+      <span>
+        {metrics.market_position} in {metrics.competition_density} Competition
+      </span>
     </div>
   );
 }
@@ -34,8 +41,21 @@ export function CompetitionBadge({ metrics }: { metrics?: CompetitionMetrics }) 
 // Review Intelligence Section
 // ============================================================================
 
-export function ReviewInsightsSection({ intelligence }: { intelligence?: ReviewIntelligence }) {
-  if (!intelligence || intelligence.total_analyzed === 0) return null;
+export function ReviewInsightsSection({
+  intelligence,
+}: {
+  intelligence?: ReviewIntelligence;
+}) {
+  // If there's no review data or total_analyzed is 0/undefined, don't render
+  if (
+    !intelligence ||
+    !intelligence.total_analyzed ||
+    intelligence.total_analyzed === 0
+  ) {
+    return null;
+  }
+
+  const sentimentScore = intelligence.sentiment_score ?? 0;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -48,8 +68,11 @@ export function ReviewInsightsSection({ intelligence }: { intelligence?: ReviewI
       <div className="mb-6">
         <div className="flex items-center gap-3">
           <div className="text-3xl">
-            {intelligence.sentiment_score >= 0.7 ? '😊' : 
-             intelligence.sentiment_score >= 0.5 ? '🙂' : '😐'}
+            {sentimentScore >= 0.7
+              ? '😊'
+              : sentimentScore >= 0.5
+              ? '🙂'
+              : '😐'}
           </div>
           <div>
             <div className="text-2xl font-bold text-gray-900">
@@ -62,49 +85,64 @@ export function ReviewInsightsSection({ intelligence }: { intelligence?: ReviewI
         </div>
       </div>
 
-      {/* Common Praise */}
-      {intelligence.common_praise.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase">
-            What Patients Love
-          </h3>
-          <div className="space-y-2">
-            {intelligence.common_praise.slice(0, 5).map((praise, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-green-50 px-3 py-2 rounded">
-                <span className="text-sm text-gray-800 capitalize">{praise.topic}</span>
-                <span className="text-xs font-medium text-green-700">
-                  Mentioned {praise.mentions}x
-                </span>
-              </div>
-            ))}
+      {/* What Patients Love */}
+      {intelligence.common_praise &&
+        intelligence.common_praise.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase">
+              What Patients Love
+            </h3>
+            <div className="space-y-2">
+              {intelligence.common_praise.slice(0, 5).map((praise, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between bg-green-50 px-3 py-2 rounded"
+                >
+                  <span className="text-sm text-gray-800 capitalize">
+                    {praise.topic}
+                  </span>
+                  <span className="text-xs font-medium text-green-700">
+                    Mentioned {praise.mentions}x
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Common Complaints */}
-      {intelligence.common_complaints.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase">
-            Areas for Improvement
-          </h3>
-          <div className="space-y-2">
-            {intelligence.common_complaints.slice(0, 3).map((complaint, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-amber-50 px-3 py-2 rounded">
-                <span className="text-sm text-gray-800 capitalize">{complaint.topic}</span>
-                <span className="text-xs font-medium text-amber-700">
-                  Mentioned {complaint.mentions}x
-                </span>
-              </div>
-            ))}
+      {/* Areas for Improvement */}
+      {intelligence.common_complaints &&
+        intelligence.common_complaints.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase">
+              Areas for Improvement
+            </h3>
+            <div className="space-y-2">
+              {intelligence.common_complaints.slice(0, 3).map(
+                (complaint, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between bg-amber-50 px-3 py-2 rounded"
+                  >
+                    <span className="text-sm text-gray-800 capitalize">
+                      {complaint.topic}
+                    </span>
+                    <span className="text-xs font-medium text-amber-700">
+                      Mentioned {complaint.mentions}x
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Extracted Insights */}
-      {intelligence.extracted_insights.typical_wait_time && (
+      {intelligence.extracted_insights?.typical_wait_time && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
           <p className="text-sm text-blue-800">
-            <strong>Typical Wait Time:</strong> {intelligence.extracted_insights.typical_wait_time}
+            <strong>Typical Wait Time:</strong>{' '}
+            {intelligence.extracted_insights?.typical_wait_time}
           </p>
         </div>
       )}
@@ -116,18 +154,24 @@ export function ReviewInsightsSection({ intelligence }: { intelligence?: ReviewI
 // Real-Time Status Banner
 // ============================================================================
 
-export function RealTimeStatusBanner({ status }: { status?: RealTimeStatus }) {
+export function RealTimeStatusBanner({
+  status,
+}: {
+  status?: RealTimeStatus;
+}) {
   if (!status) return null;
 
+  const trendDir = status.trending?.rating_trend_30d;
+
   const getTrendIcon = () => {
-    if (status.trending.rating_trend_30d === 'up') return '📈';
-    if (status.trending.rating_trend_30d === 'down') return '📉';
+    if (trendDir === 'up') return '📈';
+    if (trendDir === 'down') return '📉';
     return '➡️';
   };
 
   const getTrendText = () => {
-    if (status.trending.rating_trend_30d === 'up') return 'Trending Up';
-    if (status.trending.rating_trend_30d === 'down') return 'Declining';
+    if (trendDir === 'up') return 'Trending Up';
+    if (trendDir === 'down') return 'Declining';
     return 'Stable';
   };
 
@@ -156,7 +200,7 @@ export function RealTimeStatusBanner({ status }: { status?: RealTimeStatus }) {
             <span>{getTrendText()}</span>
           </div>
           <div className="text-xs text-gray-600">
-            {status.trending.new_reviews_30d} new reviews this month
+            {status.trending?.new_reviews_30d} new reviews this month
           </div>
         </div>
       </div>
@@ -168,7 +212,11 @@ export function RealTimeStatusBanner({ status }: { status?: RealTimeStatus }) {
 // Convenience Score Card
 // ============================================================================
 
-export function ConvenienceScoreCard({ scores }: { scores?: ConvenienceScores }) {
+export function ConvenienceScoreCard({
+  scores,
+}: {
+  scores?: ConvenienceScores;
+}) {
   if (!scores) return null;
 
   return (
@@ -201,24 +249,32 @@ export function ConvenienceScoreCard({ scores }: { scores?: ConvenienceScores })
       )}
 
       {/* Parking */}
-      <div className="mb-4 p-3 bg-gray-50 rounded">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">Parking</span>
-          <span className="text-sm text-gray-900">
-            {scores.parking_assessment.difficulty} • {scores.parking_assessment.estimated_cost}
-          </span>
+      {scores.parking_assessment && (
+        <div className="mb-4 p-3 bg-gray-50 rounded">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">Parking</span>
+            <span className="text-sm text-gray-900">
+              {scores.parking_assessment.difficulty} •{' '}
+              {scores.parking_assessment.estimated_cost}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Nearby Amenities */}
-      {scores.nearby_amenities.length > 0 && (
+      {scores.nearby_amenities && scores.nearby_amenities.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Nearby</h3>
           <div className="space-y-2">
             {scores.nearby_amenities.map((amenity, idx) => (
-              <div key={idx} className="flex items-center justify-between text-sm">
+              <div
+                key={idx}
+                className="flex items-center justify-between text-sm"
+              >
                 <span className="text-gray-700">{amenity.name}</span>
-                <span className="text-gray-500">{amenity.distance_miles.toFixed(1)} mi</span>
+                <span className="text-gray-500">
+                  {amenity.distance_miles.toFixed(1)} mi
+                </span>
               </div>
             ))}
           </div>
@@ -232,7 +288,11 @@ export function ConvenienceScoreCard({ scores }: { scores?: ConvenienceScores })
 // Social Proof Summary
 // ============================================================================
 
-export function SocialProofSummary({ social }: { social?: SocialProofExtended }) {
+export function SocialProofSummary({
+  social,
+}: {
+  social?: SocialProofExtended;
+}) {
   if (!social) return null;
 
   return (
@@ -265,28 +325,37 @@ export function SocialProofSummary({ social }: { social?: SocialProofExtended })
             <span className="font-medium text-gray-700">Google</span>
             <div className="flex items-center gap-2">
               <span className="text-yellow-500">★</span>
-              <span className="font-semibold">{social.platforms.google.rating.toFixed(1)}</span>
-              <span className="text-sm text-gray-500">({social.platforms.google.count})</span>
+              <span className="font-semibold">
+                {social.platforms.google.rating.toFixed(1)}
+              </span>
+              <span className="text-sm text-gray-500">
+                ({social.platforms.google.count})
+              </span>
             </div>
           </div>
         )}
+
         {social.platforms.yelp && (
           <div className="flex items-center justify-between bg-white px-4 py-2 rounded">
             <span className="font-medium text-gray-700">Yelp</span>
             <div className="flex items-center gap-2">
               <span className="text-yellow-500">★</span>
-              <span className="font-semibold">{social.platforms.yelp.rating.toFixed(1)}</span>
-              <span className="text-sm text-gray-500">({social.platforms.yelp.count})</span>
+              <span className="font-semibold">
+                {social.platforms.yelp.rating.toFixed(1)}
+              </span>
+              <span className="text-sm text-gray-500">
+                ({social.platforms.yelp.count})
+              </span>
             </div>
           </div>
         )}
       </div>
 
       {/* Trust Signals */}
-      {social.trust_signals.years_in_business && (
+      {social.trust_signals?.years_in_business && (
         <div className="mt-4 pt-4 border-t border-yellow-200">
           <p className="text-sm text-gray-700 text-center">
-            ✓ {social.trust_signals.years_in_business} years in business
+            ✓ {social.trust_signals?.years_in_business} years in business
           </p>
         </div>
       )}
