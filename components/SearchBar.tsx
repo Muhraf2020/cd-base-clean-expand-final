@@ -20,14 +20,16 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
   // Helper: run a text search
   const submitSearch = (q: string) => {
     const trimmed = q.trim();
-    if (!trimmed) return;
-
+    
+    // ✅ Now allows empty query to reset filters
     if (onSearch) {
-      // Clinics page mode: parent handles filtering in-memory
       onSearch(trimmed);
     } else {
-      // Home page mode: navigate to clinics page with query
-      router.push(`/clinics?q=${encodeURIComponent(trimmed)}`);
+      if (trimmed) {
+        router.push(`/clinics?q=${encodeURIComponent(trimmed)}`);
+      } else {
+        router.push('/clinics');
+      }
     }
   };
 
