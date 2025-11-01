@@ -17,9 +17,8 @@ export function CompetitionBadge({ metrics }: { metrics?: CompetitionMetrics }) 
   if (!metrics) return null;
 
   const getColor = () => {
-    const percentile = metrics.rating_percentile ?? 0;  // ← ADD THIS LINE
-    if (percentile >= 75) return 'bg-green-100 text-green-800 border-green-300';
-    if (percentile >= 50) return 'bg-blue-100 text-blue-800 border-blue-300';
+    if (metrics.rating_percentile >= 75) return 'bg-green-100 text-green-800 border-green-300';
+    if (metrics.rating_percentile >= 50) return 'bg-blue-100 text-blue-800 border-blue-300';
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
@@ -49,8 +48,8 @@ export function ReviewInsightsSection({ intelligence }: { intelligence?: ReviewI
       <div className="mb-6">
         <div className="flex items-center gap-3">
           <div className="text-3xl">
-            {(intelligence.sentiment_score ?? 0) >= 0.7 ? '😊' : 
-             (intelligence.sentiment_score ?? 0) >= 0.5 ? '🙂' : '😐'}
+            {intelligence.sentiment_score >= 0.7 ? '😊' : 
+             intelligence.sentiment_score >= 0.5 ? '🙂' : '😐'}
           </div>
           <div>
             <div className="text-2xl font-bold text-gray-900">
