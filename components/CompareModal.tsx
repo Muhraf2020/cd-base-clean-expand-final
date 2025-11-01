@@ -363,7 +363,12 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
 
                 {/* SERVICES SECTION */}
                 {clinics.some(
-                  (c) => c.website_services && c.website_services.length > 0
+                  (c) =>
+                    c.website_services &&
+                    Array.isArray(
+                      (c.website_services as any).mentioned_services
+                    ) &&
+                    (c.website_services as any).mentioned_services.length > 0
                 ) && (
                   <>
                     <tr className="bg-gray-100">
@@ -378,29 +383,44 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
                       <td className="p-4 text-gray-700 sticky left-0 bg-white z-10">
                         Available Services
                       </td>
-                      {clinics.map((clinic) => (
-                        <td key={clinic.place_id} className="p-4">
-                          {clinic.website_services &&
-                          clinic.website_services.length > 0 ? (
-                            <ul className="space-y-1 text-sm">
-                              {clinic.website_services
-                                .slice(0, 5)
-                                .map((service, idx) => (
-                                  <li key={idx} className="text-gray-700">
+                      {clinics.map((clinic) => {
+                        const mentioned =
+                          clinic.website_services &&
+                          Array.isArray(
+                            (clinic.website_services as any)
+                              .mentioned_services
+                          )
+                            ? (clinic.website_services as any)
+                                .mentioned_services
+                            : [];
+
+                        return (
+                          <td key={clinic.place_id} className="p-4">
+                            {mentioned.length > 0 ? (
+                              <ul className="space-y-1 text-sm">
+                                {mentioned.slice(0, 5).map((service, idx) => (
+                                  <li
+                                    key={idx}
+                                    className="text-gray-700"
+                                  >
                                     • {service}
                                   </li>
                                 ))}
-                              {clinic.website_services.length > 5 && (
-                                <li className="text-gray-500 italic">
-                                  +{clinic.website_services.length - 5} more
-                                </li>
-                              )}
-                            </ul>
-                          ) : (
-                            <span className="text-gray-400">Not listed</span>
-                          )}
-                        </td>
-                      ))}
+
+                                {mentioned.length > 5 && (
+                                  <li className="text-gray-500 italic">
+                                    +{mentioned.length - 5} more
+                                  </li>
+                                )}
+                              </ul>
+                            ) : (
+                              <span className="text-gray-400">
+                                Not listed
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
                     </tr>
                   </>
                 )}
