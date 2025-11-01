@@ -343,10 +343,11 @@ export default async function ClinicDetailPage({ params }: ClinicPageProps) {
           <ClinicBanner
             clinicName={clinic.display_name}
             placeId={clinic.place_id}
-            rating={clinic.rating}
-            website={clinic.website}
+            rating={clinic.rating ?? undefined}
+            website={clinic.website ?? undefined}
             className="w-full h-full object-cover"
           />
+
 
           {/* Overlay gradient */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-gray-50"></div>
