@@ -34,10 +34,11 @@ import CompareButton from '@/components/CompareButton';
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || 'https://dermaclinicnearme.com';
 
+// NEW:
 interface ClinicPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
 // ============================================================================
@@ -46,7 +47,7 @@ interface ClinicPageProps {
 export async function generateMetadata({
   params,
 }: ClinicPageProps): Promise<Metadata> {
-  const { slug } = params;
+  const { slug } = await params;  // ✅ Correct
   const clinic = await getClinicBySlug(slug);
 
   if (!clinic) {
@@ -290,7 +291,7 @@ function toCitySlug(name: string) {
 // MAIN COMPONENT
 // ============================================================================
 export default async function ClinicDetailPage({ params }: ClinicPageProps) {
-  const { slug } = params;
+  const { slug } = await params;  // ✅ Correct
 
   const rawClinic = await getClinicBySlug(slug);
   if (!rawClinic) {
