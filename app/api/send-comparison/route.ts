@@ -3,16 +3,24 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function POST(request: Request) {
   try {
+    // Initialize Resend and Supabase inside the function
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase configuration');
+      return NextResponse.json(
+        { error: 'Service configuration error. Please try again later.' },
+        { status: 500 }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { name, email, clinics } = await request.json();
 
     // Validation
@@ -93,9 +101,9 @@ export async function POST(request: Request) {
       userId = newUser.id;
     }
 
-    // Step 2: Extract clinic IDs and names
-    const clinicIds = clinics.map((clinic: any) => clinic.id);
-    const clinicNames = clinics.map((clinic: any) => clinic.name);
+    // Step 2: Extract clinic place_ids and display_names
+    const clinicPlaceIds = clinics.map((clinic: any) => clinic.place_id);
+    const clinicNames = clinics.map((clinic: any) => clinic.display_name);
 
     // Step 3: Save comparison request to database (linked to user)
     const { data: comparisonRequest, error: dbError } = await supabase
@@ -104,7 +112,7 @@ export async function POST(request: Request) {
         {
           user_id: userId,
           user_email: email.toLowerCase(),
-          clinic_ids: clinicIds,
+          clinic_ids: clinicPlaceIds,
           clinic_names: clinicNames,
           request_status: 'pending',
         },
@@ -199,17 +207,17 @@ function generateComparisonEmailHTML(clinics: any[], userName: string): string {
   
   // Sort clinics by rating (highest first) to highlight the top one
   const sortedClinics = [...clinics].sort((a, b) => {
-    const ratingA = a.overallRating || a.googleRating || 0;
-    const ratingB = b.overallRating || b.googleRating || 0;
+    const ratingA = a.rating || 0;
+    const ratingB = b.rating || 0;
     return ratingB - ratingA;
   });
 
   const topClinic = sortedClinics[0];
 
   const clinicCardsHTML = sortedClinics.map((clinic, index) => {
-    const rating = clinic.overallRating || clinic.googleRating || 0;
-    const reviews = clinic.reviewCount || 0;
-    const isTopRated = clinic.id === topClinic.id && sortedClinics.length > 1;
+    const rating = clinic.rating || 0;
+    const reviews = clinic.user_rating_count || 0;
+    const isTopRated = clinic.place_id === topClinic.place_id && sortedClinics.length > 1;
     
     return `
       <div style="background-color: ${isTopRated ? '#f0f9ff' : '#ffffff'}; 
@@ -226,7 +234,7 @@ function generateComparisonEmailHTML(clinics: any[], userName: string): string {
         ` : ''}
         
         <h3 style="margin: 0 0 12px 0; color: #111827; font-size: 18px; font-weight: 600;">
-          ${index + 1}. ${clinic.name}
+          ${index + 1}. ${clinic.display_name}
         </h3>
         
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
@@ -238,9 +246,9 @@ function generateComparisonEmailHTML(clinics: any[], userName: string): string {
           </span>
         </div>
 
-        ${clinic.address ? `
+        ${clinic.formatted_address ? `
           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
-            📍 ${clinic.address}
+            📍 ${clinic.formatted_address}
           </p>
         ` : ''}
 
@@ -250,13 +258,13 @@ function generateComparisonEmailHTML(clinics: any[], userName: string): string {
           </p>
         ` : ''}
 
-        ${clinic.qualityScore ? `
+        ${clinic.intelligence_scores?.overall_score ? `
           <div style="margin: 12px 0;">
             <div style="background-color: #f3f4f6; border-radius: 4px; height: 8px; overflow: hidden;">
-              <div style="background-color: #10b981; height: 100%; width: ${clinic.qualityScore}%;"></div>
+              <div style="background-color: #10b981; height: 100%; width: ${clinic.intelligence_scores.overall_score}%;"></div>
             </div>
             <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 12px;">
-              Quality Score: ${clinic.qualityScore}%
+              Quality Score: ${clinic.intelligence_scores.overall_score}%
             </p>
           </div>
         ` : ''}
@@ -274,7 +282,7 @@ function generateComparisonEmailHTML(clinics: any[], userName: string): string {
                 </span>
               `).join('')}
               ${clinic.services.length > 4 ? `
-                <span style="display: inline-block; color: #6b7280; font-size: 12px; margin: 2px;">
+                <span style="color: #6b7280; font-size: 12px;">
                   +${clinic.services.length - 4} more
                 </span>
               ` : ''}
@@ -282,115 +290,77 @@ function generateComparisonEmailHTML(clinics: any[], userName: string): string {
           </div>
         ` : ''}
 
-        <a href="${siteUrl}/clinics/${clinic.id}" 
-           style="display: inline-block; background-color: #2563eb; color: white; 
-                  padding: 10px 20px; border-radius: 6px; text-decoration: none; 
-                  font-size: 14px; font-weight: 500; margin-top: 12px;">
-          View Full Details →
-        </a>
+        ${clinic.website ? `
+          <a href="${clinic.website}" 
+             style="display: inline-block; margin-top: 12px; padding: 8px 16px; 
+                    background-color: #2563eb; color: white; text-decoration: none; 
+                    border-radius: 4px; font-size: 14px;">
+            Visit Website
+          </a>
+        ` : ''}
       </div>
     `;
   }).join('');
 
   return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clinic Comparison Report</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
-  <table role="presentation" style="width: 100%; border-collapse: collapse;">
-    <tr>
-      <td style="padding: 40px 20px;">
-        <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9fafb;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
           
           <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px; border-radius: 8px 8px 0 0; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
-                Your Clinic Comparison Report
-              </h1>
-              <p style="margin: 8px 0 0 0; color: #e0e7ff; font-size: 14px;">
-                ${clinics.length} dermatology clinics compared
+          <div style="background-color: #2563eb; padding: 32px 24px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 24px;">
+              Your Dermatology Clinic Comparison
+            </h1>
+            <p style="margin: 8px 0 0 0; color: #bfdbfe; font-size: 14px;">
+              Requested by ${userName}
+            </p>
+          </div>
+
+          <!-- Content -->
+          <div style="padding: 32px 24px;">
+            <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px;">
+              Hi ${userName},
+            </p>
+            <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px;">
+              Here's your comparison of ${clinics.length} dermatology clinics:
+            </p>
+
+            ${clinicCardsHTML}
+
+            <div style="margin-top: 32px; padding: 20px; background-color: #f0f9ff; 
+                        border-radius: 8px; text-align: center;">
+              <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px;">
+                Ready to book an appointment?
               </p>
-            </td>
-          </tr>
-
-          <!-- Greeting -->
-          <tr>
-            <td style="padding: 32px 32px 24px 32px;">
-              <p style="margin: 0; color: #111827; font-size: 16px;">
-                Hi ${userName},
-              </p>
-              <p style="margin: 16px 0 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                Thank you for using Derm Clinics Near Me! Here's your detailed comparison of ${clinics.length} dermatology clinics. 
-                We've highlighted the top-rated clinic to help you make an informed decision.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Clinic Cards -->
-          <tr>
-            <td style="padding: 0 32px 24px 32px;">
-              ${clinicCardsHTML}
-            </td>
-          </tr>
-
-          <!-- How to Choose Section -->
-          <tr>
-            <td style="padding: 0 32px 24px 32px; border-top: 1px solid #e5e7eb;">
-              <h2 style="margin: 24px 0 12px 0; color: #111827; font-size: 18px; font-weight: 600;">
-                How to Choose the Right Clinic
-              </h2>
-              <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.8;">
-                <li>Compare ratings and review counts for reliability</li>
-                <li>Check if they offer the specific services you need</li>
-                <li>Consider location and accessibility</li>
-                <li>Review their quality scores and patient feedback</li>
-                <li>Contact clinics directly to verify availability</li>
-              </ul>
-            </td>
-          </tr>
-
-          <!-- CTA -->
-          <tr>
-            <td style="padding: 0 32px 32px 32px; text-align: center;">
-              <a href="${siteUrl}" 
-                 style="display: inline-block; background-color: #2563eb; color: white; 
-                        padding: 14px 32px; border-radius: 6px; text-decoration: none; 
-                        font-size: 16px; font-weight: 600;">
-                Browse More Clinics
+              <a href="${siteUrl}/clinics" 
+                 style="display: inline-block; padding: 12px 32px; background-color: #2563eb; 
+                        color: white; text-decoration: none; border-radius: 6px; font-size: 16px;">
+                View More Clinics
               </a>
-              <p style="margin: 16px 0 0 0; color: #9ca3af; font-size: 12px;">
-                Need help? Visit our website or contact support
-              </p>
-            </td>
-          </tr>
+            </div>
+          </div>
 
           <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9fafb; padding: 24px 32px; border-radius: 0 0 8px 8px; text-align: center; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
-                © ${new Date().getFullYear()} Derm Clinics Near Me. All rights reserved.
-              </p>
-              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-                You received this email because you requested a clinic comparison from dermaclinicnearme.com
-              </p>
-              <p style="margin: 12px 0 0 0;">
-                <a href="${siteUrl}" style="color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 500;">
-                  Visit Website
-                </a>
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
+          <div style="padding: 24px; background-color: #f9fafb; text-align: center; 
+                      border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+              This comparison was generated by 
+              <a href="${siteUrl}" style="color: #2563eb; text-decoration: none;">
+                Derm Clinics Near Me
+              </a>
+            </p>
+            <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+              © ${new Date().getFullYear()} Derm Clinics Near Me. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
   `;
 }
