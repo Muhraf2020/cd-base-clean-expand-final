@@ -234,3 +234,4 @@ function generateComparisonText(clinics: Clinic[]): string {
 
   return text;
 }
+
