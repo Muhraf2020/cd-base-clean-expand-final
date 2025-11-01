@@ -130,8 +130,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Step 4: Generate email HTML using React Email template
-    const emailHTML = render(
+    // Step 4: Generate email HTML using React Email template (await the render)
+    const emailHTML = await render(
       ComparisonEmailTemplate({ 
         clinics: clinics,
         userName: name 
