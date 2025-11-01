@@ -1,4 +1,3 @@
-// app/clinics/[slug]/page.tsx
 export const dynamic = 'force-dynamic';
 
 import { createSupabaseClient } from '@/lib/supabase';
@@ -8,7 +7,10 @@ import ClinicBanner from '@/components/ClinicBanner';
 import FeaturedClinicsSection from '@/components/FeaturedClinicsSection';
 import { notFound, redirect } from 'next/navigation';
 import { Metadata } from 'next';
-import { generateClinicSchema, generateBreadcrumbSchema } from '@/lib/structuredData';
+import {
+  generateClinicSchema,
+  generateBreadcrumbSchema,
+} from '@/lib/structuredData';
 import IntelligenceScores from '@/components/IntelligenceScores';
 import {
   ReviewsSection,
@@ -26,16 +28,16 @@ import {
   SocialProofSummary,
 } from '@/components/Tier2EnhancedData';
 
-// ✅ NEW: Compare button so users can add this clinic to the compare tray
+// NEW: compare button on detail page
 import CompareButton from '@/components/CompareButton';
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || 'https://dermaclinicnearme.com';
 
 interface ClinicPageProps {
-  params: Promise<{
+  params: {
     slug: string;
-  }>;
+  };
 }
 
 // ============================================================================
@@ -44,7 +46,7 @@ interface ClinicPageProps {
 export async function generateMetadata({
   params,
 }: ClinicPageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug } = params;
   const clinic = await getClinicBySlug(slug);
 
   if (!clinic) {
@@ -109,7 +111,7 @@ async function getClinicBySlug(slug: string): Promise<Clinic | null> {
     .eq('slug', slug)
     .single();
 
-  // If not found by slug, check if it's a place_id (for backward compatibility)
+  // If not found by slug, check if it's a place_id (backward compatibility)
   if (error && slug.startsWith('ChIJ')) {
     const { data: placeData, error: placeError } = await supabase
       .from('clinics')
@@ -287,21 +289,19 @@ function toCitySlug(name: string) {
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
-export default async function ClinicDetailPage({
-  params,
-}: ClinicPageProps) {
-  const { slug } = await params;
+export default async function ClinicDetailPage({ params }: ClinicPageProps) {
+  const { slug } = params;
 
   const rawClinic = await getClinicBySlug(slug);
   if (!rawClinic) {
     notFound();
   }
-  const clinic = normalizeClinicForUI(rawClinic) as Clinic;
 
+  const clinic = normalizeClinicForUI(rawClinic) as Clinic;
   const amenityChips = buildAmenityChips(clinic);
   const canonicalUrl = `${BASE_URL}/clinics/${clinic.slug}`;
 
-  // Generate structured data for SEO
+  // Structured data for SEO
   const clinicSchema = generateClinicSchema(clinic, canonicalUrl);
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: 'Home', url: BASE_URL },
@@ -312,9 +312,9 @@ export default async function ClinicDetailPage({
     { name: clinic.display_name, url: canonicalUrl },
   ]);
 
-  // Build pretty city URL for "Back to ..." link
+  // Pretty "Back to ___ Clinics" link
   const stateCode = clinic.state_code || '';
-  the const cityName = clinic.city || '';
+  const cityName = clinic.city || '';
   const citySlug = toCitySlug(cityName);
 
   const backHref =
@@ -331,7 +331,9 @@ export default async function ClinicDetailPage({
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbSchema),
+        }}
       />
 
       <div className="min-h-screen bg-gray-50">
@@ -445,7 +447,7 @@ export default async function ClinicDetailPage({
                     </a>
                   )}
 
-                  {/* ✅ NEW: add to comparison tray from detail page */}
+                  {/* NEW: Compare button on detail page */}
                   <CompareButton clinic={clinic} variant="detail" />
 
                   <a
@@ -538,43 +540,43 @@ export default async function ClinicDetailPage({
 
                 {/* Contact Information */}
                 <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-3 flex items-center">
-                      <svg
-                        className="w-6 h-6 mr-2 text-blue-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                        />
-                      </svg>
-                      Contact
-                    </h2>
-                    <div className="space-y-2">
-                      {clinic.phone && (
-                        <p className="text-gray-700">
-                          <span className="font-medium">Phone:</span>{' '}
-                          {clinic.phone}
-                        </p>
-                      )}
-                      {clinic.website && (
-                        <p className="text-gray-700">
-                          <span className="font-medium">Website:</span>{' '}
-                          <a
-                            href={clinic.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Visit Website
-                          </a>
-                        </p>
-                      )}
-                    </div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+                    <svg
+                      className="w-6 h-6 mr-2 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Contact
+                  </h2>
+                  <div className="space-y-2">
+                    {clinic.phone && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Phone:</span>{' '}
+                        {clinic.phone}
+                      </p>
+                    )}
+                    {clinic.website && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Website:</span>{' '}
+                        <a
+                          href={clinic.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          Visit Website
+                        </a>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Amenities */}
@@ -637,7 +639,7 @@ export default async function ClinicDetailPage({
                       </h2>
                       <div className="space-y-2">
                         {clinic.opening_hours.weekday_text.map(
-                          (hours, idx) => {
+                          (hours: string, idx: number) => {
                             const [day, time] = hours.split(': ');
                             return (
                               <div
@@ -656,7 +658,7 @@ export default async function ClinicDetailPage({
               </div>
             </div>
 
-            {/* Enhanced Data Section */}
+            {/* Intelligence / Quality Scores */}
             {clinic.intelligence_scores && (
               <div className="border-t border-gray-200 pt-8">
                 <IntelligenceScores
@@ -682,7 +684,7 @@ export default async function ClinicDetailPage({
           </div>
 
           {/* Tier 2 Enhanced Data */}
-          {((clinic as any).real_time_status || null) && (
+          {(clinic as any).real_time_status && (
             <RealTimeStatusBanner
               status={(clinic as any).real_time_status}
             />
