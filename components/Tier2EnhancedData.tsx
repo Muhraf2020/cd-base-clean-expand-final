@@ -18,8 +18,8 @@ export function CompetitionBadge({ metrics }: { metrics?: CompetitionMetrics }) 
 
   const getColor = () => {
     const percentile = metrics.rating_percentile ?? 0;  // ← ADD THIS LINE
-    if (metrics.rating_percentile >= 75) return 'bg-green-100 text-green-800 border-green-300';
-    if (metrics.rating_percentile >= 50) return 'bg-blue-100 text-blue-800 border-blue-300';
+    if (percentile >= 75) return 'bg-green-100 text-green-800 border-green-300';
+    if (percentile >= 50) return 'bg-blue-100 text-blue-800 border-blue-300';
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
