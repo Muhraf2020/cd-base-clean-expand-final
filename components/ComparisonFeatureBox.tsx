@@ -98,7 +98,7 @@ export default function ComparisonFeatureBox() {
 
                 {/* CTA Button */}
                 <Link
-                  href="/clinics"
+                  href="#browse-by-state"
                   className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105"
                 >
                   <span>Start Comparing Now</span>
