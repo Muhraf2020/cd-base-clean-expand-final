@@ -26,6 +26,9 @@ import {
   SocialProofSummary,
 } from '@/components/Tier2EnhancedData';
 
+// ✅ NEW: Compare button so users can add this clinic to the compare tray
+import CompareButton from '@/components/CompareButton';
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || 'https://dermaclinicnearme.com';
 
@@ -311,7 +314,7 @@ export default async function ClinicDetailPage({
 
   // Build pretty city URL for "Back to ..." link
   const stateCode = clinic.state_code || '';
-  const cityName = clinic.city || '';
+  the const cityName = clinic.city || '';
   const citySlug = toCitySlug(cityName);
 
   const backHref =
@@ -442,6 +445,9 @@ export default async function ClinicDetailPage({
                     </a>
                   )}
 
+                  {/* ✅ NEW: add to comparison tray from detail page */}
+                  <CompareButton clinic={clinic} variant="detail" />
+
                   <a
                     href={clinic.google_maps_uri}
                     target="_blank"
@@ -532,43 +538,43 @@ export default async function ClinicDetailPage({
 
                 {/* Contact Information */}
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-3 flex items-center">
-                    <svg
-                      className="w-6 h-6 mr-2 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
-                    Contact
-                  </h2>
-                  <div className="space-y-2">
-                    {clinic.phone && (
-                      <p className="text-gray-700">
-                        <span className="font-medium">Phone:</span>{' '}
-                        {clinic.phone}
-                      </p>
-                    )}
-                    {clinic.website && (
-                      <p className="text-gray-700">
-                        <span className="font-medium">Website:</span>{' '}
-                        <a
-                          href={clinic.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
-                        >
-                          Visit Website
-                        </a>
-                      </p>
-                    )}
-                  </div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-3 flex items-center">
+                      <svg
+                        className="w-6 h-6 mr-2 text-blue-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                      Contact
+                    </h2>
+                    <div className="space-y-2">
+                      {clinic.phone && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Phone:</span>{' '}
+                          {clinic.phone}
+                        </p>
+                      )}
+                      {clinic.website && (
+                        <p className="text-gray-700">
+                          <span className="font-medium">Website:</span>{' '}
+                          <a
+                            href={clinic.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            Visit Website
+                          </a>
+                        </p>
+                      )}
+                    </div>
                 </div>
 
                 {/* Amenities */}
