@@ -1,293 +1,388 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Clinic } from '@/lib/dataTypes';
-import { ComparisonDisplay } from '@/components/ComparisonDisplay';
+import { useState } from 'react';
+import { useCompare } from '@/lib/CompareContext';
+import { X, Mail, Check, AlertCircle } from 'lucide-react';
 
-interface CompareModalProps {
-  clinics: Clinic[];
-  onClose: () => void;
-}
-
-export default function CompareModal({ clinics, onClose }: CompareModalProps) {
+export default function CompareModal() {
+  const { selectedClinics, removeClinic, clearAll, isOpen, closeModal } = useCompare();
+  
+  // Email form state
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [userName, setUserName] = useState('');
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailError, setEmailError] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendStatus, setSendStatus] = useState<{
+    type: 'success' | 'error' | null;
+    message: string;
+  }>({ type: null, message: '' });
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  if (!isOpen || selectedClinics.length === 0) return null;
 
-  // Handle email sending
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!email || !email.includes('@')) {
-      setEmailError('Please enter a valid email address');
+    
+    if (!name.trim() || !email.trim()) {
+      setSendStatus({
+        type: 'error',
+        message: 'Please enter both your name and email address',
+      });
       return;
     }
 
-    setSendingEmail(true);
-    setEmailError('');
+    setIsSending(true);
+    setSendStatus({ type: null, message: '' });
 
     try {
       const response = await fetch('/api/send-comparison', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          email,
-          userName: userName || undefined,
-          clinics: clinics.map((c) => ({
-            place_id: c.place_id,
-            display_name: c.display_name,
-            city: c.city,
-            state_code: c.state_code,
-            slug: c.slug,
-            rating: c.rating,
-            user_rating_count: c.user_rating_count,
-            formatted_address: c.formatted_address,
-            phone: c.phone,
-            website: c.website,
-            current_open_now: c.current_open_now,
-            accessibility_options: c.accessibility_options,
-            parking_options: c.parking_options,
-            payment_options: c.payment_options,
-            intelligence_scores: c.intelligence_scores,
-            website_services: c.website_services,
-            convenience_scores: (c as any).convenience_scores,
-            languages_spoken: (c as any).languages_spoken,
-          })),
+          name: name.trim(),
+          email: email.trim(),
+          clinics: selectedClinics,
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setEmailSent(true);
-        setEmail('');
-        setUserName('');
+        setSendStatus({
+          type: 'success',
+          message: `✓ Comparison report sent to ${email}! Check your inbox.`,
+        });
+        
+        // Clear form after 3 seconds and close email form
+        setTimeout(() => {
+          setName('');
+          setEmail('');
+          setShowEmailForm(false);
+          setSendStatus({ type: null, message: '' });
+        }, 3000);
       } else {
-        setEmailError(
-          data.error || 'Failed to send email. Please try again.'
-        );
+        setSendStatus({
+          type: 'error',
+          message: data.error || 'Failed to send email. Please try again.',
+        });
       }
     } catch (error) {
-      console.error('Email send error:', error);
-      setEmailError(
-        'Network error. Please check your connection and try again.'
-      );
+      setSendStatus({
+        type: 'error',
+        message: 'Network error. Please check your connection and try again.',
+      });
     } finally {
-      setSendingEmail(false);
+      setIsSending(false);
     }
   };
 
+  // Calculate max values for each metric
+  const maxValues = {
+    rating: Math.max(...selectedClinics.map(c => c.overallRating || c.googleRating || 0)),
+    reviews: Math.max(...selectedClinics.map(c => c.reviewCount || 0)),
+    quality: Math.max(...selectedClinics.map(c => c.qualityScore || 0)),
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] overflow-hidden bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="relative w-full max-w-6xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden flex flex-col">
+        
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Clinic Comparison
+            <h2 className="text-2xl font-bold text-white">
+              Compare Clinics
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Comparing {clinics.length} dermatology clinics side-by-side
+            <p className="text-blue-100 text-sm mt-1">
+              {selectedClinics.length} {selectedClinics.length === 1 ? 'clinic' : 'clinics'} selected
             </p>
           </div>
           <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition"
-            title="Close comparison"
+            onClick={closeModal}
+            className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+            aria-label="Close modal"
           >
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Body: scrollable comparison table */}
-        <div className="flex-1 overflow-auto p-6">
-          <ComparisonDisplay clinics={clinics} />
-        </div>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          
+          {/* Action Buttons */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => setShowEmailForm(!showEmailForm)}
+              disabled={isSending}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg 
+                       hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 
+                       disabled:cursor-not-allowed"
+            >
+              <Mail className="w-4 h-4" />
+              {showEmailForm ? 'Hide Email Form' : 'Email This Report'}
+            </button>
+            
+            <button
+              onClick={clearAll}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg 
+                       hover:bg-gray-50 transition-colors font-medium"
+            >
+              Clear All
+            </button>
+          </div>
 
-        {/* Footer with Email Form */}
-        <div className="border-t border-gray-200 p-6 bg-gray-50">
-          {emailSent ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <svg
-                className="w-12 h-12 text-green-600 mx-auto mb-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="text-green-800 font-semibold">
-                Email sent successfully!
-              </p>
-              <p className="text-green-700 text-sm mt-1">
-                Check your inbox for the detailed comparison report.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSendEmail} className="space-y-4">
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  📧 Email This Comparison
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Get a detailed PDF comparison sent to your inbox
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Email Form */}
+          {showEmailForm && (
+            <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-blue-600" />
+                Send Comparison Report to Your Email
+              </h3>
+              
+              <form onSubmit={handleSendEmail} className="space-y-4">
                 <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Email Address *
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="John Doe"
+                    required
+                    disabled={isSending}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 
+                             focus:ring-blue-500 focus:border-transparent disabled:opacity-50 
+                             disabled:bg-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Email Address *
                   </label>
                   <input
                     type="email"
                     id="email"
                     value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setEmailError('');
-                    }}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john@example.com"
                     required
-                    placeholder="your.email@example.com"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isSending}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 
+                             focus:ring-blue-500 focus:border-transparent disabled:opacity-50 
+                             disabled:bg-gray-100"
                   />
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="userName"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Your Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    id="userName"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    placeholder="John Doe"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
+                <button
+                  type="submit"
+                  disabled={isSending}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+                           transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed 
+                           flex items-center justify-center gap-2"
+                >
+                  {isSending ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-5 h-5" />
+                      Send Report
+                    </>
+                  )}
+                </button>
+              </form>
 
-              {emailError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-                  <svg
-                    className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <p className="text-sm text-red-800">{emailError}</p>
+              {/* Status Messages */}
+              {sendStatus.type && (
+                <div className={`mt-4 p-4 rounded-lg flex items-start gap-3 ${
+                  sendStatus.type === 'success' 
+                    ? 'bg-green-50 border border-green-200 text-green-800' 
+                    : 'bg-red-50 border border-red-200 text-red-800'
+                }`}>
+                  {sendStatus.type === 'success' ? (
+                    <Check className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  )}
+                  <p className="text-sm font-medium">{sendStatus.message}</p>
                 </div>
               )}
-
-              <div className="flex items-center justify-between pt-2">
-                <p className="text-sm text-gray-600">
-                  We'll send you a detailed PDF comparison report
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium transition"
-                  >
-                    Close
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={sendingEmail}
-                    className={`px-6 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
-                      sendingEmail
-                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {sendingEmail ? (
-                      <>
-                        <svg
-                          className="animate-spin h-5 w-5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                          />
-                        </svg>
-                        Send Comparison
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </form>
+            </div>
           )}
+
+          {/* Comparison Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="text-left p-4 font-semibold text-gray-900 border-b-2 border-gray-200 sticky left-0 bg-gray-50 z-10">
+                    Clinic
+                  </th>
+                  {selectedClinics.map((clinic) => (
+                    <th key={clinic.id} className="p-4 border-b-2 border-gray-200 min-w-[250px]">
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="font-semibold text-gray-900 text-center">
+                          {clinic.name}
+                        </span>
+                        <button
+                          onClick={() => removeClinic(clinic.id)}
+                          className="text-red-600 hover:text-red-700 text-sm flex items-center gap-1"
+                        >
+                          <X className="w-4 h-4" />
+                          Remove
+                        </button>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              
+              <tbody>
+                {/* Rating Row */}
+                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="p-4 font-medium text-gray-700 sticky left-0 bg-white">
+                    Rating
+                  </td>
+                  {selectedClinics.map((clinic) => {
+                    const rating = clinic.overallRating || clinic.googleRating || 0;
+                    const isMax = rating === maxValues.rating;
+                    return (
+                      <td key={clinic.id} className={`p-4 text-center ${isMax ? 'bg-green-50' : ''}`}>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-1 text-yellow-500">
+                            {[...Array(5)].map((_, i) => (
+                              <span key={i}>
+                                {i < Math.round(rating) ? '★' : '☆'}
+                              </span>
+                            ))}
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {rating.toFixed(1)}
+                          </span>
+                          {isMax && <span className="text-xs text-green-700 font-medium">Highest</span>}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* Reviews Row */}
+                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="p-4 font-medium text-gray-700 sticky left-0 bg-white">
+                    Reviews
+                  </td>
+                  {selectedClinics.map((clinic) => {
+                    const reviews = clinic.reviewCount || 0;
+                    const isMax = reviews === maxValues.reviews;
+                    return (
+                      <td key={clinic.id} className={`p-4 text-center ${isMax ? 'bg-green-50' : ''}`}>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-semibold text-gray-900">{reviews}</span>
+                          {isMax && <span className="text-xs text-green-700 font-medium">Most</span>}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* Address Row */}
+                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="p-4 font-medium text-gray-700 sticky left-0 bg-white">
+                    Address
+                  </td>
+                  {selectedClinics.map((clinic) => (
+                    <td key={clinic.id} className="p-4 text-center">
+                      <span className="text-sm text-gray-600">
+                        {clinic.address || 'N/A'}
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+
+                {/* Phone Row */}
+                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="p-4 font-medium text-gray-700 sticky left-0 bg-white">
+                    Phone
+                  </td>
+                  {selectedClinics.map((clinic) => (
+                    <td key={clinic.id} className="p-4 text-center">
+                      <span className="text-sm text-gray-600">
+                        {clinic.phone || 'N/A'}
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+
+                {/* Quality Score Row */}
+                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="p-4 font-medium text-gray-700 sticky left-0 bg-white">
+                    Quality Score
+                  </td>
+                  {selectedClinics.map((clinic) => {
+                    const quality = clinic.qualityScore || 0;
+                    const isMax = quality === maxValues.quality;
+                    return (
+                      <td key={clinic.id} className={`p-4 ${isMax ? 'bg-green-50' : ''}`}>
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-green-600 h-2 rounded-full"
+                              style={{ width: `${quality}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">{quality}%</span>
+                          {isMax && <span className="text-xs text-green-700 font-medium">Highest</span>}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* Services Row */}
+                <tr className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="p-4 font-medium text-gray-700 sticky left-0 bg-white">
+                    Services
+                  </td>
+                  {selectedClinics.map((clinic) => (
+                    <td key={clinic.id} className="p-4">
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {clinic.services && clinic.services.length > 0 ? (
+                          clinic.services.slice(0, 3).map((service: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                            >
+                              {service}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-400">None listed</span>
+                        )}
+                        {clinic.services && clinic.services.length > 3 && (
+                          <span className="text-xs text-gray-500">
+                            +{clinic.services.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t bg-gray-50">
+          <p className="text-sm text-gray-600 text-center">
+            Compare up to 4 clinics at once. Click "Email This Report" to receive a detailed comparison in your inbox.
+          </p>
         </div>
       </div>
     </div>
