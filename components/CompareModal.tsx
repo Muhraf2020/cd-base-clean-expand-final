@@ -79,9 +79,9 @@ export default function CompareModal() {
 
   // Calculate max values for each metric
   const maxValues = {
-    rating: Math.max(...selectedClinics.map(c => c.overallRating || c.googleRating || 0)),
-    reviews: Math.max(...selectedClinics.map(c => c.reviewCount || 0)),
-    quality: Math.max(...selectedClinics.map(c => c.qualityScore || 0)),
+    rating: Math.max(...selectedClinics.map(c => c.rating || 0)),
+    reviews: Math.max(...selectedClinics.map(c => c.user_rating_count || 0)),
+    quality: Math.max(...selectedClinics.map(c => c.intelligence_scores?.overall_score || 0)),
   };
 
   return (
@@ -225,13 +225,13 @@ export default function CompareModal() {
                     Clinic
                   </th>
                   {selectedClinics.map((clinic) => (
-                    <th key={clinic.id} className="p-4 border-b-2 border-gray-200 min-w-[250px]">
+                    <th key={clinic.place_id} className="p-4 border-b-2 border-gray-200 min-w-[250px]">
                       <div className="flex flex-col items-center gap-2">
                         <span className="font-semibold text-gray-900 text-center">
-                          {clinic.name}
+                          {clinic.display_name}
                         </span>
                         <button
-                          onClick={() => removeClinic(clinic.id)}
+                          onClick={() => removeClinic(clinic.place_id)}
                           className="text-red-600 hover:text-red-700 text-sm flex items-center gap-1"
                         >
                           <X className="w-4 h-4" />
@@ -250,10 +250,10 @@ export default function CompareModal() {
                     Rating
                   </td>
                   {selectedClinics.map((clinic) => {
-                    const rating = clinic.overallRating || clinic.googleRating || 0;
+                    const rating = clinic.rating || 0;
                     const isMax = rating === maxValues.rating;
                     return (
-                      <td key={clinic.id} className={`p-4 text-center ${isMax ? 'bg-green-50' : ''}`}>
+                      <td key={clinic.place_id} className={`p-4 text-center ${isMax ? 'bg-green-50' : ''}`}>
                         <div className="flex flex-col items-center gap-1">
                           <div className="flex items-center gap-1 text-yellow-500">
                             {[...Array(5)].map((_, i) => (
@@ -278,10 +278,10 @@ export default function CompareModal() {
                     Reviews
                   </td>
                   {selectedClinics.map((clinic) => {
-                    const reviews = clinic.reviewCount || 0;
+                    const reviews = clinic.user_rating_count || 0;
                     const isMax = reviews === maxValues.reviews;
                     return (
-                      <td key={clinic.id} className={`p-4 text-center ${isMax ? 'bg-green-50' : ''}`}>
+                      <td key={clinic.place_id} className={`p-4 text-center ${isMax ? 'bg-green-50' : ''}`}>
                         <div className="flex flex-col items-center gap-1">
                           <span className="font-semibold text-gray-900">{reviews}</span>
                           {isMax && <span className="text-xs text-green-700 font-medium">Most</span>}
@@ -297,9 +297,9 @@ export default function CompareModal() {
                     Address
                   </td>
                   {selectedClinics.map((clinic) => (
-                    <td key={clinic.id} className="p-4 text-center">
+                    <td key={clinic.place_id} className="p-4 text-center">
                       <span className="text-sm text-gray-600">
-                        {clinic.address || 'N/A'}
+                        {clinic.formatted_address || 'N/A'}
                       </span>
                     </td>
                   ))}
@@ -311,7 +311,7 @@ export default function CompareModal() {
                     Phone
                   </td>
                   {selectedClinics.map((clinic) => (
-                    <td key={clinic.id} className="p-4 text-center">
+                    <td key={clinic.place_id} className="p-4 text-center">
                       <span className="text-sm text-gray-600">
                         {clinic.phone || 'N/A'}
                       </span>
@@ -325,10 +325,10 @@ export default function CompareModal() {
                     Quality Score
                   </td>
                   {selectedClinics.map((clinic) => {
-                    const quality = clinic.qualityScore || 0;
+                    const quality = clinic.intelligence_scores?.overall_score || 0;
                     const isMax = quality === maxValues.quality;
                     return (
-                      <td key={clinic.id} className={`p-4 ${isMax ? 'bg-green-50' : ''}`}>
+                      <td key={clinic.place_id} className={`p-4 ${isMax ? 'bg-green-50' : ''}`}>
                         <div className="flex flex-col items-center gap-2">
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
@@ -350,7 +350,7 @@ export default function CompareModal() {
                     Services
                   </td>
                   {selectedClinics.map((clinic) => (
-                    <td key={clinic.id} className="p-4">
+                    <td key={clinic.place_id} className="p-4">
                       <div className="flex flex-wrap gap-1 justify-center">
                         {clinic.services && clinic.services.length > 0 ? (
                           clinic.services.slice(0, 3).map((service: string, idx: number) => (
