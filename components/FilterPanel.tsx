@@ -20,6 +20,8 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
   const [isExpanded, setIsExpanded] = useState({
     rating: true,
     features: true,
+    amenities: true,
+    services: false,
     states: false,
     sort: true,
   });
@@ -43,7 +45,7 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
   const hasActiveFilters = Object.keys(filters).length > 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-5 sticky top-24">
+    <div className="bg-white rounded-lg shadow-md p-5 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
         {hasActiveFilters && (
@@ -62,7 +64,7 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
           onClick={() => setIsExpanded(prev => ({ ...prev, rating: !prev.rating }))}
           className="flex items-center justify-between w-full mb-3"
         >
-          <span className="font-medium text-gray-900">Minimum Rating</span>
+          <span className="font-medium text-gray-900">⭐ Minimum Rating</span>
           <svg
             className={`w-5 h-5 transition-transform ${isExpanded.rating ? 'rotate-180' : ''}`}
             fill="none"
@@ -105,13 +107,13 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
         )}
       </div>
 
-      {/* Features Filter */}
+      {/* Basic Features */}
       <div className="mb-6 pb-6 border-b border-gray-200">
         <button
           onClick={() => setIsExpanded(prev => ({ ...prev, features: !prev.features }))}
           className="flex items-center justify-between w-full mb-3"
         >
-          <span className="font-medium text-gray-900">Features</span>
+          <span className="font-medium text-gray-900">🏥 Basic Features</span>
           <svg
             className={`w-5 h-5 transition-transform ${isExpanded.features ? 'rotate-180' : ''}`}
             fill="none"
@@ -132,31 +134,7 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
               <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
-                Open now
-              </span>
-            </label>
-            
-            <label className="flex items-center cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={filters.wheelchair_accessible || false}
-                onChange={(e) => updateFilter('wheelchair_accessible', e.target.checked || undefined)}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
-                Wheelchair accessible
-              </span>
-            </label>
-            
-            <label className="flex items-center cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={filters.free_parking || false}
-                onChange={(e) => updateFilter('free_parking', e.target.checked || undefined)}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
-                Free parking
+                🟢 Open now
               </span>
             </label>
             
@@ -168,7 +146,7 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
               <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
-                Has website
+                🌐 Has website
               </span>
             </label>
             
@@ -180,7 +158,123 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
               <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
-                Has phone number
+                📞 Has phone number
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Amenities & Accessibility */}
+      <div className="mb-6 pb-6 border-b border-gray-200">
+        <button
+          onClick={() => setIsExpanded(prev => ({ ...prev, amenities: !prev.amenities }))}
+          className="flex items-center justify-between w-full mb-3"
+        >
+          <span className="font-medium text-gray-900">♿ Amenities</span>
+          <svg
+            className={`w-5 h-5 transition-transform ${isExpanded.amenities ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        
+        {isExpanded.amenities && (
+          <div className="space-y-2">
+            <label className="flex items-center cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.wheelchair_accessible || false}
+                onChange={(e) => updateFilter('wheelchair_accessible', e.target.checked || undefined)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+                ♿ Wheelchair accessible
+              </span>
+            </label>
+            
+            <label className="flex items-center cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.free_parking || false}
+                onChange={(e) => updateFilter('free_parking', e.target.checked || undefined)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+                🅿️ Free parking
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Digital Services */}
+      <div className="mb-6 pb-6 border-b border-gray-200">
+        <button
+          onClick={() => setIsExpanded(prev => ({ ...prev, services: !prev.services }))}
+          className="flex items-center justify-between w-full mb-3"
+        >
+          <span className="font-medium text-gray-900">💻 Digital Services</span>
+          <svg
+            className={`w-5 h-5 transition-transform ${isExpanded.services ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        
+        {isExpanded.services && (
+          <div className="space-y-2">
+            <label className="flex items-center cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.has_online_booking || false}
+                onChange={(e) => updateFilter('has_online_booking', e.target.checked || undefined)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+                📱 Online booking
+              </span>
+            </label>
+            
+            <label className="flex items-center cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.has_telehealth || false}
+                onChange={(e) => updateFilter('has_telehealth', e.target.checked || undefined)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+                💻 Telehealth available
+              </span>
+            </label>
+            
+            <label className="flex items-center cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.has_patient_portal || false}
+                onChange={(e) => updateFilter('has_patient_portal', e.target.checked || undefined)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+                🔐 Patient portal
+              </span>
+            </label>
+
+            <label className="flex items-center cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={filters.accepts_insurance || false}
+                onChange={(e) => updateFilter('accepts_insurance', e.target.checked || undefined)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+                💳 Accepts insurance
               </span>
             </label>
           </div>
@@ -188,12 +282,12 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
       </div>
 
       {/* Sort By */}
-      <div className="mb-6">
+      <div className="mb-6 pb-6 border-b border-gray-200">
         <button
           onClick={() => setIsExpanded(prev => ({ ...prev, sort: !prev.sort }))}
           className="flex items-center justify-between w-full mb-3"
         >
-          <span className="font-medium text-gray-900">Sort By</span>
+          <span className="font-medium text-gray-900">📊 Sort By</span>
           <svg
             className={`w-5 h-5 transition-transform ${isExpanded.sort ? 'rotate-180' : ''}`}
             fill="none"
@@ -237,7 +331,7 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
           onClick={() => setIsExpanded(prev => ({ ...prev, states: !prev.states }))}
           className="flex items-center justify-between w-full mb-3"
         >
-          <span className="font-medium text-gray-900">States</span>
+          <span className="font-medium text-gray-900">📍 States</span>
           <svg
             className={`w-5 h-5 transition-transform ${isExpanded.states ? 'rotate-180' : ''}`}
             fill="none"

@@ -1,11 +1,11 @@
+// app/api/clinics/route.ts
+
 // Use Node runtime on Cloudflare; edge runtime is not supported by default
 // export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
-// app/api/clinics/route.ts 
 import { NextResponse } from 'next/server';
 import { createSupabaseClient } from '@/lib/supabase';
-
 import { Clinic } from '@/lib/dataTypes';
 
 // ✅ Valid US states for filtering
@@ -37,65 +37,11 @@ const STATE_TIMEZONES: Record<string, string> = {
 };
 
 /**
- * Transform Supabase data (camelCase) to frontend format (snake_case)
- * and calculate real-time open_now status
- */
-function transformClinicData(rawClinic: any): Clinic {
-  // Transform accessibility_options from camelCase to snake_case
-  const accessibility_options = rawClinic.accessibility_options ? {
-    wheelchair_accessible_entrance: rawClinic.accessibility_options.wheelchairAccessibleEntrance,
-    wheelchair_accessible_parking: rawClinic.accessibility_options.wheelchairAccessibleParking,
-    wheelchair_accessible_restroom: rawClinic.accessibility_options.wheelchairAccessibleRestroom,
-    wheelchair_accessible_seating: rawClinic.accessibility_options.wheelchairAccessibleSeating,
-  } : undefined;
-
-  // Transform payment_options from camelCase to snake_case
-  const payment_options = rawClinic.payment_options ? {
-    accepts_credit_cards: rawClinic.payment_options.acceptsCreditCards,
-    accepts_debit_cards: rawClinic.payment_options.acceptsDebitCards,
-    accepts_cash_only: rawClinic.payment_options.acceptsCashOnly,
-    accepts_nfc: rawClinic.payment_options.acceptsNfc,
-  } : undefined;
-
-  // Transform parking_options from camelCase to snake_case
-  const parking_options = rawClinic.parking_options ? {
-    free_parking_lot: rawClinic.parking_options.freeParkingLot,
-    paid_parking_lot: rawClinic.parking_options.paidParkingLot,
-    free_street_parking: rawClinic.parking_options.freeStreetParking,
-    paid_street_parking: rawClinic.parking_options.paidStreetParking,
-    valet_parking: rawClinic.parking_options.valetParking,
-    free_garage_parking: rawClinic.parking_options.freeGarageParking,
-    paid_garage_parking: rawClinic.parking_options.paidGarageParking,
-  } : undefined;
-
-  // Calculate real-time open_now status from weekday_text
-  let current_open_now = false;
-  if (rawClinic.opening_hours?.weekday_text) {
-    const timezone = STATE_TIMEZONES[rawClinic.state_code] || 'America/New_York';
-    current_open_now = calculateOpenNowFromWeekdayText(
-      rawClinic.opening_hours.weekday_text,
-      timezone
-    );
-  }
-
-  return {
-    ...rawClinic,
-    accessibility_options,
-    payment_options,
-    parking_options,
-    current_open_now,
-    opening_hours: rawClinic.opening_hours ? {
-      ...rawClinic.opening_hours,
-      open_now: current_open_now, // Update this dynamically
-    } : undefined,
-  };
-}
-
-/**
  * Calculate if a clinic is open now based on weekday_text array
  * with proper timezone handling
- * 
- * Example: ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 9:00 AM – 5:00 PM", ...]
+ *
+ * Example weekday_text:
+ * ["Monday: 8:00 AM – 5:00 PM", "Tuesday: 9:00 AM – 5:00 PM", ...]
  */
 function calculateOpenNowFromWeekdayText(
   weekdayText: string[],
@@ -116,8 +62,8 @@ function calculateOpenNowFromWeekdayText(
 
     const parts = formatter.formatToParts(now);
     const weekday = parts.find(p => p.type === 'weekday')?.value || '';
-    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
     const currentTime = hour * 60 + minute; // Minutes since midnight
 
     // Find today's hours
@@ -131,7 +77,7 @@ function calculateOpenNowFromWeekdayText(
     const timeMatch = todayHours.match(
       /(\d{1,2}):(\d{2})\s*(AM|PM)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i
     );
-    
+
     if (!timeMatch) {
       console.warn(`Could not parse hours: ${todayHours}`);
       return false;
@@ -139,22 +85,26 @@ function calculateOpenNowFromWeekdayText(
 
     const [, openHour, openMin, openPeriod, closeHour, closeMin, closePeriod] = timeMatch;
 
-    // Convert to 24-hour format
-    let openTime = parseInt(openHour) * 60 + parseInt(openMin);
-    let closeTime = parseInt(closeHour) * 60 + parseInt(closeMin);
+    // Convert to minutes since midnight (24h)
+    let openTime = parseInt(openHour, 10) * 60 + parseInt(openMin, 10);
+    let closeTime = parseInt(closeHour, 10) * 60 + parseInt(closeMin, 10);
 
-    // Handle AM/PM conversion
-    if (openPeriod.toUpperCase() === 'PM' && parseInt(openHour) !== 12) {
+    // Handle AM/PM conversion for opening time
+    if (openPeriod.toUpperCase() === 'PM' && parseInt(openHour, 10) !== 12) {
       openTime += 12 * 60;
     }
-    if (openPeriod.toUpperCase() === 'AM' && parseInt(openHour) === 12) {
-      openTime = parseInt(openMin); // 12 AM is 00:00
+    if (openPeriod.toUpperCase() === 'AM' && parseInt(openHour, 10) === 12) {
+      // 12 AM is 00:xx
+      openTime = parseInt(openMin, 10);
     }
-    if (closePeriod.toUpperCase() === 'PM' && parseInt(closeHour) !== 12) {
+
+    // Handle AM/PM conversion for closing time
+    if (closePeriod.toUpperCase() === 'PM' && parseInt(closeHour, 10) !== 12) {
       closeTime += 12 * 60;
     }
-    if (closePeriod.toUpperCase() === 'AM' && parseInt(closeHour) === 12) {
-      closeTime = parseInt(closeMin); // 12 AM is 00:00
+    if (closePeriod.toUpperCase() === 'AM' && parseInt(closeHour, 10) === 12) {
+      // 12 AM is 00:xx
+      closeTime = parseInt(closeMin, 10);
     }
 
     // Check if current time is within operating hours
@@ -166,48 +116,337 @@ function calculateOpenNowFromWeekdayText(
 }
 
 /**
- * GET /api/clinics
- * Fetches all clinics from Supabase (US-only)
+ * Transform Supabase data (camelCase in DB) to frontend format (snake_case)
+ * and calculate real-time open_now status
  */
+function transformClinicData(rawClinic: any): Clinic {
+  // Transform accessibility_options from camelCase (DB) to snake_case (frontend)
+  const accessibility_options = rawClinic.accessibility_options
+    ? {
+        wheelchair_accessible_entrance:
+          rawClinic.accessibility_options.wheelchairAccessibleEntrance,
+        wheelchair_accessible_parking:
+          rawClinic.accessibility_options.wheelchairAccessibleParking,
+        wheelchair_accessible_restroom:
+          rawClinic.accessibility_options.wheelchairAccessibleRestroom,
+        wheelchair_accessible_seating:
+          rawClinic.accessibility_options.wheelchairAccessibleSeating,
+      }
+    : undefined;
+
+  // Transform payment_options from camelCase to snake_case
+  const payment_options = rawClinic.payment_options
+    ? {
+        accepts_credit_cards: rawClinic.payment_options.acceptsCreditCards,
+        accepts_debit_cards: rawClinic.payment_options.acceptsDebitCards,
+        accepts_cash_only: rawClinic.payment_options.acceptsCashOnly,
+        accepts_nfc: rawClinic.payment_options.acceptsNfc,
+      }
+    : undefined;
+
+  // Transform parking_options from camelCase to snake_case
+  const parking_options = rawClinic.parking_options
+    ? {
+        free_parking_lot: rawClinic.parking_options.freeParkingLot,
+        paid_parking_lot: rawClinic.parking_options.paidParkingLot,
+        free_street_parking: rawClinic.parking_options.freeStreetParking,
+        paid_street_parking: rawClinic.parking_options.paidStreetParking,
+        valet_parking: rawClinic.parking_options.valetParking,
+        free_garage_parking: rawClinic.parking_options.freeGarageParking,
+        paid_garage_parking: rawClinic.parking_options.paidGarageParking,
+      }
+    : undefined;
+
+  // Calculate real-time open_now status from weekday_text
+  let current_open_now = false;
+  if (rawClinic.opening_hours?.weekday_text) {
+    const timezone =
+      STATE_TIMEZONES[rawClinic.state_code] || 'America/New_York';
+    current_open_now = calculateOpenNowFromWeekdayText(
+      rawClinic.opening_hours.weekday_text,
+      timezone
+    );
+  }
+
+  return {
+    ...rawClinic,
+    accessibility_options,
+    payment_options,
+    parking_options,
+    current_open_now,
+    opening_hours: rawClinic.opening_hours
+      ? {
+          ...rawClinic.opening_hours,
+          open_now: current_open_now, // dynamic override
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Helper: does this clinic "match" certain service keywords?
+ * Checks clinic.website_services.mentioned_services[] and clinic.display_name.
+ * Used for client-side fallback filters like pediatric / cosmetic / Mohs.
+ */
+function matchesService(clinic: any, serviceKeywords: string[]): boolean {
+  const mentioned =
+    clinic.website_services?.mentioned_services || [];
+  const name = (clinic.display_name || '').toLowerCase();
+
+  return serviceKeywords.some((kw) => {
+    const kwLower = kw.toLowerCase();
+    const inArray = mentioned.some(
+      (s: string) => s.toLowerCase().includes(kwLower)
+    );
+    const inName = name.includes(kwLower);
+    return inArray || inName;
+  });
+}
+
 export async function GET(request: Request) {
-  // ✅ Initialize Supabase client INSIDE the function (Edge/Workers-safe)
+  // ✅ Initialize Supabase client INSIDE the function (Workers safe)
   const supabase = createSupabaseClient();
 
   try {
     const { searchParams } = new URL(request.url);
+
+    // -----------------------------------------------------------------------
+    // BASIC QUERY PARAMS (existing)
+    // -----------------------------------------------------------------------
     const state = searchParams.get('state');
     const city = searchParams.get('city');
     const q = searchParams.get('q');
-    const page = parseInt(searchParams.get('page') || '1');
-    const perPage = parseInt(searchParams.get('per_page') || '500');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const perPage = parseInt(searchParams.get('per_page') || '500', 10);
 
+    // -----------------------------------------------------------------------
+    // NEW FILTER PARAMS (enhanced filters)
+    // Booleans come in as strings ("true" / "false")
+    // -----------------------------------------------------------------------
+    const rating_min = searchParams.get('rating_min');
+    const open_now = searchParams.get('open_now') === 'true';
+    const wheelchair_accessible =
+      searchParams.get('wheelchair_accessible') === 'true';
+    const free_parking = searchParams.get('free_parking') === 'true';
+
+    // Digital services / experience flags from website_services JSONB
+    const has_online_booking =
+      searchParams.get('has_online_booking') === 'true';
+    const has_telehealth =
+      searchParams.get('has_telehealth') === 'true';
+    const has_patient_portal =
+      searchParams.get('has_patient_portal') === 'true';
+    const accepts_insurance =
+      searchParams.get('accepts_insurance') === 'true';
+
+    // Services list filter (comma-separated list like "acne,botox,laser_hair")
+    const servicesParam = searchParams.get('services');
+    const servicesList = servicesParam
+      ? servicesParam
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    // Specialty-style convenience filters
+    const pediatric = searchParams.get('pediatric') === 'true';
+    const cosmetic = searchParams.get('cosmetic') === 'true';
+    const mohs_surgery = searchParams.get('mohs_surgery') === 'true';
+
+    // NPI verification
+    const npi_verified =
+      searchParams.get('npi_verified') === 'true';
+
+    // Intelligence score thresholds
+    const min_overall_score_raw =
+      searchParams.get('min_overall_score');
+    const min_overall_score = min_overall_score_raw
+      ? parseInt(min_overall_score_raw, 10)
+      : undefined;
+
+    const min_digital_presence_raw =
+      searchParams.get('min_digital_presence');
+    const min_digital_presence = min_digital_presence_raw
+      ? parseInt(min_digital_presence_raw, 10)
+      : undefined;
+
+    // Sorting params (with fallbacks)
+    const sort_by = searchParams.get('sort_by') || 'rating';
+    const sort_order =
+      (searchParams.get('sort_order') as 'asc' | 'desc') ||
+      'desc';
+
+    // -----------------------------------------------------------------------
+    // BUILD BASE QUERY (Supabase/PostgREST)
+    // -----------------------------------------------------------------------
     let query = supabase
       .from('clinics')
       .select('*', { count: 'exact' });
 
-    // ✅ Always filter to valid US states at the database level
+    // ✅ Always filter to valid US states at the DB level
     query = query.in('state_code', Array.from(VALID_US_STATES));
 
-    // Filter by state
+    // State filter
     if (state) {
       query = query.eq('state_code', state);
     }
 
-    // Filter by city
+    // City filter (ILIKE for partial match, case-insensitive)
     if (city) {
       query = query.ilike('city', `%${city}%`);
     }
 
-    // Search query (name or address)
+    // Free text search in name or address
     if (q) {
-      query = query.or(`display_name.ilike.%${q}%,formatted_address.ilike.%${q}%`);
+      // NOTE: .or() can only be called once effectively, so we keep this
+      // as the only .or() in the DB query to avoid collisions with
+      // pediatric/cosmetic/etc. Those we handle client-side below.
+      query = query.or(
+        `display_name.ilike.%${q}%,formatted_address.ilike.%${q}%`
+      );
     }
 
-    // Pagination
+    // Minimum rating filter
+    if (rating_min) {
+      const minRatingNum = parseFloat(rating_min);
+      if (!Number.isNaN(minRatingNum)) {
+        query = query.gte('rating', minRatingNum);
+      }
+    }
+
+    // Accessibility filter (DB is camelCase; frontend is snake_case)
+    if (wheelchair_accessible) {
+      // DB JSONB path example:
+      // accessibility_options->>wheelchairAccessibleEntrance = 'true'
+      query = query.eq(
+        'accessibility_options->>wheelchairAccessibleEntrance',
+        'true'
+      );
+    }
+
+    // Parking filter
+    if (free_parking) {
+      query = query.eq(
+        'parking_options->>freeParkingLot',
+        'true'
+      );
+    }
+
+    // Digital service filters (website_services JSONB)
+    if (has_online_booking) {
+      query = query.eq(
+        'website_services->>has_online_booking',
+        'true'
+      );
+    }
+
+    if (has_telehealth) {
+      query = query.eq(
+        'website_services->>has_telehealth',
+        'true'
+      );
+    }
+
+    if (has_patient_portal) {
+      query = query.eq(
+        'website_services->>has_patient_portal',
+        'true'
+      );
+    }
+
+    if (accepts_insurance) {
+      query = query.eq(
+        'website_services->>insurance_mentioned',
+        'true'
+      );
+    }
+
+    // NPI verification filter
+    if (npi_verified) {
+      // only clinics with npi_data.is_verified === true
+      query = query.not('npi_data', 'is', null);
+      query = query.eq(
+        'npi_data->>is_verified',
+        'true'
+      );
+    }
+
+    // NOTE: We are NOT pushing servicesList / pediatric / cosmetic / mohs_surgery
+    // OR score thresholds into the DB query here because:
+    // - Supabase .or() can't be chained repeatedly without overwriting
+    // - Comparing numeric thresholds inside nested JSONB sometimes sorts/filters lexicographically
+    // We'll do these as a safe client-side pass AFTER we fetch the rows.
+
+    // -----------------------------------------------------------------------
+    // SORTING before pagination
+    // -----------------------------------------------------------------------
+    switch (sort_by) {
+      case 'rating':
+        query = query.order('rating', {
+          ascending: sort_order === 'asc',
+          nullsLast: true,
+        });
+        break;
+
+      case 'reviews':
+        query = query.order('user_rating_count', {
+          ascending: sort_order === 'asc',
+          nullsLast: true,
+        });
+        break;
+
+      case 'name':
+        query = query.order('display_name', {
+          ascending: sort_order === 'asc',
+        });
+        break;
+
+      case 'score':
+        // overall_score lives in intelligence_scores JSONB.
+        // Using ->> will treat it as text in Postgres, but we accept that
+        // caveat for now. Good enough for initial sort.
+        query = query.order(
+          'intelligence_scores->>overall_score',
+          {
+            ascending: sort_order === 'asc',
+            nullsLast: true,
+          }
+        );
+        break;
+
+      case 'distance':
+        // NOTE: real distance sorting would require PostGIS or
+        // haversine calc with supplied lat/lng.
+        // We won't attempt server-side distance sort yet.
+        // We'll fall back to rating sort.
+        console.warn(
+          'Distance sorting requested but not implemented server-side'
+        );
+        query = query.order('rating', {
+          ascending: false,
+          nullsLast: true,
+        });
+        break;
+
+      default:
+        // same default as your old behavior (implicitly rating desc)
+        query = query.order('rating', {
+          ascending: false,
+          nullsLast: true,
+        });
+        break;
+    }
+
+    // -----------------------------------------------------------------------
+    // PAGINATION
+    // -----------------------------------------------------------------------
     const from = (page - 1) * perPage;
     const to = from + perPage - 1;
     query = query.range(from, to);
 
+    // -----------------------------------------------------------------------
+    // EXECUTE QUERY
+    // -----------------------------------------------------------------------
     const { data, error, count } = await query;
 
     if (error) {
@@ -215,29 +454,135 @@ export async function GET(request: Request) {
       throw error;
     }
 
-    // ✅ Additional client-side filter as defense-in-depth
-    const usClinics = (data || []).filter(clinic => 
-      clinic.state_code && VALID_US_STATES.has(clinic.state_code)
+    // -----------------------------------------------------------------------
+    // DEFENSE-IN-DEPTH: still ensure US-only in case anything leaked
+    // -----------------------------------------------------------------------
+    const usClinics = (data || []).filter(
+      (clinic: any) =>
+        clinic.state_code && VALID_US_STATES.has(clinic.state_code)
     );
 
-    // Transform all US clinics to match frontend expectations
-    const transformedClinics = usClinics.map(transformClinicData);
+    // -----------------------------------------------------------------------
+    // TRANSFORM FOR FRONTEND (snake_case fields, dynamic open_now)
+    // -----------------------------------------------------------------------
+    let transformedClinics: Clinic[] = usClinics.map(
+      transformClinicData
+    );
 
+    // -----------------------------------------------------------------------
+    // CLIENT-SIDE / FALLBACK FILTERS
+    // (safe post-processing so we don't break your .or() logic above)
+    // -----------------------------------------------------------------------
+
+    // Filter by "currently open"
+    if (open_now) {
+      transformedClinics = transformedClinics.filter(
+        (c: any) => c.current_open_now === true
+      );
+    }
+
+    // Filter by services list (e.g. services=acne,botox,laser)
+    if (servicesList.length > 0) {
+      transformedClinics = transformedClinics.filter((c) =>
+        matchesService(c, servicesList)
+      );
+    }
+
+    // Pediatric-only clinics
+    if (pediatric) {
+      transformedClinics = transformedClinics.filter((c) =>
+        matchesService(c, [
+          'pediatric dermatology',
+          'pediatric',
+          'kids',
+          'children',
+        ])
+      );
+    }
+
+    // Cosmetic-focused clinics
+    if (cosmetic) {
+      transformedClinics = transformedClinics.filter((c) =>
+        matchesService(c, [
+          'cosmetic dermatology',
+          'cosmetic',
+          'aesthetic',
+          'botox',
+          'filler',
+          'fillers',
+          'injectable',
+          'laser',
+        ])
+      );
+    }
+
+    // Mohs surgery filter
+    if (mohs_surgery) {
+      transformedClinics = transformedClinics.filter((c) =>
+        matchesService(c, [
+          'mohs surgery',
+          'mohs',
+          'skin cancer surgery',
+        ])
+      );
+    }
+
+    // Intelligence score thresholds (client-side numeric compare)
+    if (typeof min_overall_score === 'number') {
+      transformedClinics = transformedClinics.filter((c: any) => {
+        const score =
+          c.intelligence_scores?.overall_score;
+        const numScore =
+          typeof score === 'number'
+            ? score
+            : parseFloat(score || '0');
+        return !Number.isNaN(numScore) &&
+          numScore >= min_overall_score;
+      });
+    }
+
+    if (typeof min_digital_presence === 'number') {
+      transformedClinics = transformedClinics.filter((c: any) => {
+        const score =
+          c.intelligence_scores?.digital_presence_score;
+        const numScore =
+          typeof score === 'number'
+            ? score
+            : parseFloat(score || '0');
+        return !Number.isNaN(numScore) &&
+          numScore >= min_digital_presence;
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // BUILD RESPONSE
+    // total:
+    // - We return the count AFTER client-side filters so the frontend
+    //   can show "X clinics found" that matches what it actually received.
+    // -----------------------------------------------------------------------
     const response = NextResponse.json({
       clinics: transformedClinics,
-      total: count || 0,
+      total: transformedClinics.length,
       page,
       per_page: perPage,
     });
 
-    // Add Cloudflare caching headers
-    // Cache for 5 minutes, stale-while-revalidate for 1 hour
-    response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
-    response.headers.set('CDN-Cache-Control', 'public, s-maxage=300');
-    response.headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=300');
+    // Cloudflare-friendly cache headers
+    // Cache for 5 minutes, allow stale for 1 hour
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=300, stale-while-revalidate=3600'
+    );
+    response.headers.set(
+      'CDN-Cache-Control',
+      'public, s-maxage=300'
+    );
+    response.headers.set(
+      'Cloudflare-CDN-Cache-Control',
+      'public, max-age=300'
+    );
 
     return response;
-    
   } catch (error) {
     console.error('Error in clinics API:', error);
     return NextResponse.json(

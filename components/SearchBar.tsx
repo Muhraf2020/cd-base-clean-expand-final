@@ -14,6 +14,7 @@ interface SearchBarProps {
 export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [isUsingLocation, setIsUsingLocation] = useState(false);
+  const [showAllFilters, setShowAllFilters] = useState(false);
   const router = useRouter();
 
   // Helper: run a text search
@@ -133,6 +134,38 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
     );
   };
 
+  // Define all filter categories
+  const mainFilters = [
+    { label: 'All', query: '', icon: '🏥' },
+    { label: 'Acne', query: 'acne', icon: '💊' },
+    { label: 'Cosmetic', query: 'cosmetic', icon: '✨' },
+    { label: 'Pediatric', query: 'pediatric', icon: '👶' },
+    { label: 'Skin Cancer', query: 'skin cancer', icon: '🎗️' },
+  ];
+
+  const specialtyFilters = [
+    { label: 'Mohs Surgery', query: 'mohs surgery', icon: '🔬' },
+    { label: 'Botox/Fillers', query: 'botox filler', icon: '💉' },
+    { label: 'Laser Treatment', query: 'laser', icon: '⚡' },
+    { label: 'Hair Loss', query: 'hair loss', icon: '💇' },
+    { label: 'Eczema', query: 'eczema', icon: '🩹' },
+    { label: 'Psoriasis', query: 'psoriasis', icon: '🔴' },
+    { label: 'Rosacea', query: 'rosacea', icon: '🌹' },
+    { label: 'Wart Removal', query: 'wart removal', icon: '🔧' },
+  ];
+
+  const amenityFilters = [
+    { label: 'Open Now', query: 'open now', icon: '🟢' },
+    { label: 'Online Booking', query: 'online booking', icon: '📱' },
+    { label: 'Telehealth', query: 'telehealth', icon: '💻' },
+    { label: 'Wheelchair Access', query: 'wheelchair accessible', icon: '♿' },
+    { label: 'Free Parking', query: 'free parking', icon: '🅿️' },
+  ];
+
+  const allFilters = showAllFilters 
+    ? [...mainFilters, ...specialtyFilters, ...amenityFilters]
+    : mainFilters;
+
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
@@ -210,41 +243,42 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
       </div>
 
       {/* Quick Filters */}
-      <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-3 overflow-x-auto scrollbar-hide">
+      <div className="mt-2 sm:mt-3">
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide pb-2">
+          {allFilters.map((filter) => (
+            <button
+              key={filter.label}
+              type="button"
+              onClick={() => handleQuickFilter(filter.query)}
+              className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-white border border-gray-300 rounded-full hover:bg-gray-50 hover:border-blue-400 transition-colors whitespace-nowrap flex-shrink-0 flex items-center gap-1"
+            >
+              <span className="text-xs">{filter.icon}</span>
+              <span>{filter.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Show More/Less Button */}
         <button
           type="button"
-          onClick={() => handleQuickFilter('')}
-          className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors whitespace-nowrap flex-shrink-0"
+          onClick={() => setShowAllFilters(!showAllFilters)}
+          className="mt-2 text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
         >
-          All
-        </button>
-        <button
-          type="button"
-          onClick={() => handleQuickFilter('acne')}
-          className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors whitespace-nowrap flex-shrink-0"
-        >
-          Acne
-        </button>
-        <button
-          type="button"
-          onClick={() => handleQuickFilter('cosmetic')}
-          className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors whitespace-nowrap flex-shrink-0"
-        >
-          Cosmetic
-        </button>
-        <button
-          type="button"
-          onClick={() => handleQuickFilter('pediatric')}
-          className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors whitespace-nowrap flex-shrink-0"
-        >
-          Pediatric
-        </button>
-        <button
-          type="button"
-          onClick={() => handleQuickFilter('skin cancer')}
-          className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition-colors whitespace-nowrap flex-shrink-0"
-        >
-          Skin Cancer
+          {showAllFilters ? (
+            <>
+              <span>Show Less</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </>
+          ) : (
+            <>
+              <span>Show More Filters ({specialtyFilters.length + amenityFilters.length} more)</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </>
+          )}
         </button>
       </div>
 
