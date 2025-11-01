@@ -42,7 +42,7 @@ export function CompareProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch {
-      /* ignore */
+      /* ignore localStorage errors */
     }
   }, []);
 
@@ -64,18 +64,15 @@ export function CompareProvider({ children }: { children: ReactNode }) {
     [selectedClinics]
   );
 
-  const addClinic = useCallback(
-    (clinic: Clinic) => {
-      setSelectedClinics((prev) => {
-        // already in list?
-        if (prev.some((c) => c.place_id === clinic.place_id)) return prev;
-        // limit how many we keep
-        if (prev.length >= MAX_CLINICS) return prev;
-        return [...prev, clinic];
-      });
-    },
-    []
-  );
+  const addClinic = useCallback((clinic: Clinic) => {
+    setSelectedClinics((prev) => {
+      // already selected?
+      if (prev.some((c) => c.place_id === clinic.place_id)) return prev;
+      // hit max?
+      if (prev.length >= MAX_CLINICS) return prev;
+      return [...prev, clinic];
+    });
+  }, []);
 
   const removeClinic = useCallback((placeId: string) => {
     setSelectedClinics((prev) =>
@@ -88,9 +85,13 @@ export function CompareProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openModal = useCallback(() => {
-    if (selectedClinics.length >= 2) {
-      setIsModalOpen(true);
-    }
+    // only open if there are at least 2 clinics to compare
+    setIsModalOpen((prev) => {
+      if (selectedClinics.length >= 2) {
+        return true;
+      }
+      return prev;
+    });
   }, [selectedClinics.length]);
 
   const closeModal = useCallback(() => {
