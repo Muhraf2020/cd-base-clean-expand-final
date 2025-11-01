@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     // Send email using Resend
     const { data, error } = await resend.emails.send({
-      from: 'Derma Finder <noreply@dermaclinicnearme.com>',
+      from: 'Derma Clinic Near Me <info@dermaclinicnearme.com>',
       to: [email],
       subject: `Dermatology Clinic Comparison Report - ${clinics.length} Clinics`,
       react: ComparisonEmailTemplate({ 
