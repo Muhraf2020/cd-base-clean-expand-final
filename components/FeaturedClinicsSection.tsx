@@ -107,7 +107,7 @@ export default function FeaturedClinicsSection({
                     clinicName={clinic.display_name}
                     placeId={clinic.place_id}
                     rating={clinic.rating ?? undefined}
-                    website={clinic.website}
+                    website={clinic.website ?? undefined}
                     className="w-full h-full object-cover transform-gpu group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
