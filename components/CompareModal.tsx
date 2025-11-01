@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useCompare } from '@/lib/CompareContext';
+import { useCompare } from '@/contexts/CompareContext';
 import { X, Mail, Check, AlertCircle } from 'lucide-react';
 
 export default function CompareModal() {
