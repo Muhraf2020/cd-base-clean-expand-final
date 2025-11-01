@@ -2,7 +2,9 @@
 
 import { Clinic } from '@/lib/dataTypes';
 import ClinicBanner from '@/components/ClinicBanner';
+import CompareButton from '@/components/CompareButton';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface ClinicCardProps {
   clinic: Clinic & { distance?: number };
@@ -12,6 +14,7 @@ interface ClinicCardProps {
 export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
   const router = useRouter();
 
+  // Status pill in the top-right of the banner
   const getStatusBadge = () => {
     if (clinic.business_status === 'CLOSED_PERMANENTLY') {
       return (
@@ -41,11 +44,16 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
     );
   };
 
+  // Card click -> go to clinic detail page
   const goToDetails = () => {
-  onClick?.();
-  // Use slug if available, fallback to place_id
-  const url = clinic.slug ? `/clinics/${clinic.slug}` : `/clinics/${clinic.place_id}`;
-  router.push(url);
+    onClick?.();
+
+    // Prefer slug if present, fall back to place_id
+    const url = clinic.slug
+      ? `/clinics/${clinic.slug}`
+      : `/clinics/${clinic.place_id}`;
+
+    router.push(url);
   };
 
   return (
@@ -59,10 +67,14 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
           goToDetails();
         }
       }}
-      className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer overflow-hidden group clinic-card"
+      className="
+        bg-white rounded-lg shadow-md hover:shadow-xl
+        transition-shadow cursor-pointer overflow-hidden
+        group clinic-card
+      "
       aria-label={`${clinic.display_name} details`}
     >
-      {/* Banner Image */}
+      {/* ===== Banner / Hero image area ===== */}
       <div className="relative h-40 sm:h-48 overflow-hidden">
         <ClinicBanner
           clinicName={clinic.display_name}
@@ -74,12 +86,14 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
         <div className="absolute top-3 right-3">{getStatusBadge()}</div>
       </div>
 
-      {/* Card Content */}
+      {/* ===== Card body ===== */}
       <div className="p-5">
+        {/* Clinic name */}
         <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1 group-hover:text-blue-600 transition-colors">
           {clinic.display_name}
         </h3>
 
+        {/* Rating + review count */}
         {typeof clinic.rating === 'number' && (
           <div className="flex items-center gap-2 mb-3">
             <div className="flex items-center">
@@ -88,6 +102,7 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
                 {clinic.rating.toFixed(1)}
               </span>
             </div>
+
             {typeof clinic.user_rating_count === 'number' && (
               <span className="text-sm text-gray-500">
                 ({clinic.user_rating_count} reviews)
@@ -96,6 +111,7 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
           </div>
         )}
 
+        {/* Address */}
         <div className="flex items-start gap-2 mb-3">
           <svg
             className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0"
@@ -121,23 +137,27 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
           </p>
         </div>
 
+        {/* Distance from user, if you passed it in */}
         {clinic.distance !== undefined && (
           <div className="text-sm text-green-600 font-medium mb-2">
             📍 {clinic.distance.toFixed(1)} miles away
           </div>
         )}
 
+        {/* Quick badges (accessibility, parking, website, etc.) */}
         <div className="flex flex-wrap gap-2 mb-4">
           {clinic.accessibility_options?.wheelchair_accessible_entrance && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded">
               ♿ Accessible
             </span>
           )}
+
           {clinic.parking_options?.free_parking_lot && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded">
               🅿️ Free Parking
             </span>
           )}
+
           {clinic.website && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 rounded">
               🌐 Website
@@ -145,25 +165,63 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
           )}
         </div>
 
-        <div className="flex gap-2 pt-3 border-t border-gray-100">
+        {/* ===== Action row 1: Call / Directions ===== */}
+        <div className="flex gap-2 pt-3 border-t border-gray-100 flex-wrap">
           {clinic.phone && (
             <a
               href={`tel:${clinic.phone}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+              className="
+                flex-1 text-center px-3 py-2 text-sm font-medium
+                text-blue-600 bg-blue-50 rounded-md
+                hover:bg-blue-100 transition-colors
+              "
             >
               📞 Call
             </a>
           )}
+
           <a
             href={clinic.google_maps_uri}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="flex-1 text-center px-3 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 transition-colors"
+            className="
+              flex-1 text-center px-3 py-2 text-sm font-medium
+              text-green-600 bg-green-50 rounded-md
+              hover:bg-green-100 transition-colors
+            "
           >
             📍 Directions
           </a>
+        </div>
+
+        {/* ===== Action row 2: View Details / Compare =====
+             We stopPropagation so clicking these buttons
+             doesn't trigger the whole card navigation.
+        */}
+        <div
+          className="flex gap-2 mt-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* View Details button (explicit link, good for SEO + accessibility) */}
+          <Link
+            href={
+              clinic.slug
+                ? `/clinics/${clinic.slug}`
+                : `/clinics/${clinic.place_id}`
+            }
+            className="
+              flex-1 text-center px-3 py-2 text-sm font-medium
+              text-white bg-blue-600 rounded-md
+              hover:bg-blue-700 transition-colors
+            "
+          >
+            View Details
+          </Link>
+
+          {/* Compare button from your compare system */}
+          <CompareButton clinic={clinic} variant="card" />
         </div>
       </div>
     </div>
