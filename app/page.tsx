@@ -440,7 +440,11 @@ export default function Home() {
       </section>
 
       {/* States Grid Section - Mobile Optimized */}
-      <section className="py-8 sm:py-12 lg:py-16">
+      <section
+          id="browse-by-state"
+          className="py-8 sm:py-12 lg:py-16"
+        >
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">
