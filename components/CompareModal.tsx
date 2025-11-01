@@ -24,7 +24,7 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
     };
   }, []);
 
-  // Helper to get value with fallback
+  // Helper to get value with fallback (kept in case we use later)
   const getValue = (
     clinic: Clinic,
     accessor: (c: Clinic) => any,
@@ -384,7 +384,7 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
                         Available Services
                       </td>
                       {clinics.map((clinic) => {
-                        const mentioned =
+                        const mentioned: string[] =
                           clinic.website_services &&
                           Array.isArray(
                             (clinic.website_services as any)
@@ -398,14 +398,16 @@ export default function CompareModal({ clinics, onClose }: CompareModalProps) {
                           <td key={clinic.place_id} className="p-4">
                             {mentioned.length > 0 ? (
                               <ul className="space-y-1 text-sm">
-                                {mentioned.slice(0, 5).map((service, idx) => (
-                                  <li
-                                    key={idx}
-                                    className="text-gray-700"
-                                  >
-                                    • {service}
-                                  </li>
-                                ))}
+                                {mentioned
+                                  .slice(0, 5)
+                                  .map((service: string, idx: number) => (
+                                    <li
+                                      key={idx}
+                                      className="text-gray-700"
+                                    >
+                                      • {service}
+                                    </li>
+                                  ))}
 
                                 {mentioned.length > 5 && (
                                   <li className="text-gray-500 italic">
