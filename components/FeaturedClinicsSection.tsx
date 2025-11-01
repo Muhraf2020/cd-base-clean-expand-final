@@ -106,7 +106,7 @@ export default function FeaturedClinicsSection({
                   <ClinicBanner
                     clinicName={clinic.display_name}
                     placeId={clinic.place_id}
-                    rating={clinic.rating}
+                    rating={clinic.rating ?? undefined}
                     website={clinic.website}
                     className="w-full h-full object-cover transform-gpu group-hover:scale-105 transition-transform duration-300"
                   />
