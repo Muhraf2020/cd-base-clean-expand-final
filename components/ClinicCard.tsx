@@ -75,7 +75,7 @@ export default function ClinicCard({ clinic, onClick }: ClinicCardProps) {
           clinicName={clinic.display_name}
           placeId={clinic.place_id}
           rating={clinic.rating ?? undefined}
-          website={clinic.website}
+          website={clinic.website ?? undefined}
           className="w-full h-full object-cover transform-gpu group-hover:scale-105 transition-transform duration-300"
         />
         <div className="absolute top-3 right-3">{getStatusBadge()}</div>
