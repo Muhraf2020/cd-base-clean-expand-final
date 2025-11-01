@@ -2,7 +2,6 @@ import Link from 'next/link';
 import StateGrid from '@/components/StateGrid';
 import SearchBar from '@/components/SearchBar';
 import StatsSection from '@/components/StatsSection';
-import ComparisonFeatureBox from '@/components/ComparisonFeatureBox';
 
 export default function Home() {
   return (
@@ -32,6 +31,7 @@ export default function Home() {
       {/* Sticky Search Bar */}
       <div className="sticky top-0 z-50 bg-white shadow-md">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4">
+          {/* ⬇⬇ NOTE: no props ⬇⬇ */}
           <SearchBar />
         </div>
       </div>
@@ -39,26 +39,20 @@ export default function Home() {
       {/* Stats Section */}
       <StatsSection />
 
-      {/* 🔥 New Comparison Feature Promo Box */}
-      <ComparisonFeatureBox />
+      {/* Credibility & Value Proposition Section */}
+      {/* (keep everything you already had here: the "Why Trust Our Directory?",
+          data sources grid, etc.) */}
 
-      {/* ✅ All your existing “Why trust us / data sources / how we score / etc.”
-          sections go here. DO NOT delete them.
-          Just keep exactly what you had before you replaced the file. */}
-
-      {/* YOUR ORIGINAL SECTIONS START */}
-      {/*
-        Example (these are placeholders to show where to put your real JSX):
-
-        <WhyTrustSection />
-        <DataSourcesSection />
-        <HowWeScoreSection />
-        <DataQualityStatement />
-
-        Whatever custom JSX / <section> blocks you had,
-        paste them back right here in the same order.
+      {/* --- paste the rest of your sections exactly as before --- */}
+      {/* Sections:
+          - Why Trust Our Directory?
+          - Data sources cards (Google Places, CMS, etc.)
+          - How We Transform Data Into Insights
+          - Data Quality Statement
+          - Browse Clinics by State (with <StateGrid />)
+          - About Derma Clinic Near Me
+          - Footer
       */}
-      {/* YOUR ORIGINAL SECTIONS END */}
 
       {/* Browse by State */}
       <section className="py-8 sm:py-12 lg:py-16">
@@ -76,7 +70,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* About / Footer (keep whatever you already had below this) */}
+      {/* ... keep the About section and Footer as you had them ... */}
     </div>
   );
 }
