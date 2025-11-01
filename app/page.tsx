@@ -5,6 +5,8 @@ import StateGrid from '@/components/StateGrid';
 import SearchBar from '@/components/SearchBar';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import ComparisonFeatureBox from '@/components/ComparisonFeatureBox';
+
 
 
 export default function Home() {
@@ -142,6 +144,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+      
+      {/* 🔥 NEW FEATURE BOX INSERTED HERE */}
+      <ComparisonFeatureBox />
 
       {/* Credibility & Value Proposition Section */}
       <section className="py-12 sm:py-16 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
