@@ -22,10 +22,7 @@ export default function CompareFloatingBar() {
 
   return (
     <>
-      {/* Modal */}
-      {isModalOpen && (
-        <CompareModal clinics={selectedClinics} onClose={closeModal} />
-      )}
+      {isModalOpen && <CompareModal />}
 
       {/* Floating Bar */}
       <div
