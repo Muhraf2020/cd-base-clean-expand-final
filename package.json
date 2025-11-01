@@ -17,15 +17,16 @@
   },
   "dependencies": {
     "@stripe/stripe-js": "^8.2.0",
-    "@supabase/supabase-js": "^2.77.0",
+    "@supabase/supabase-js": "^2.78.0",
     "@types/google.maps": "^3.55.0",
     "compromise": "^14.14.4",
     "dotenv": "^17.2.3",
     "next": "^15.5.2",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "resend": "^6.4.0",
     "sentiment": "^5.0.2",
-    "stripe": "^19.1.0"
+    "stripe": "^19.2.0"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.11.0",
