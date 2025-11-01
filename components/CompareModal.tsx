@@ -5,7 +5,7 @@ import { useCompare } from '@/contexts/CompareContext';
 import { X, Mail, Check, AlertCircle } from 'lucide-react';
 
 export default function CompareModal() {
-  const { selectedClinics, removeClinic, clearAll, isOpen, closeModal } = useCompare();
+  const { selectedClinics, removeClinic, clearAll, isModalOpen, closeModal } = useCompare();
   
   // Email form state
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -17,7 +17,7 @@ export default function CompareModal() {
     message: string;
   }>({ type: null, message: '' });
 
-  if (!isOpen || selectedClinics.length === 0) return null;
+  if (!isModalOpen || selectedClinics.length === 0) return null;
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
