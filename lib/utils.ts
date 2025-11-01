@@ -88,39 +88,59 @@ export function extractState(address: string): string | null {
  */
 export function extractCity(address: string): string | null {
   const parts = address.split(',').map(p => p.trim());
-  return parts.length >= 2 ? parts[parts.length - 2].replace(/\s+\d+.*$/, '') : null;
+  return parts.length >= 2
+    ? parts[parts.length - 2].replace(/\s+\d+.*$/, '')
+    : null;
 }
 
 /**
  * Check if clinic is open now based on opening hours
+ *
+ * Always returns a strict boolean (true = open, false = closed / unknown)
  */
 export function isOpenNow(clinic: Clinic): boolean {
-  if (clinic.current_open_now !== undefined) {
-    return clinic.current_open_now;
+  //
+  // 1. Prefer the direct flag if it exists and is not null
+  //
+  if (
+    clinic.current_open_now !== undefined &&
+    clinic.current_open_now !== null
+  ) {
+    // force it to a real boolean to satisfy the return type
+    return clinic.current_open_now === true;
   }
 
-  if (!clinic.opening_hours?.periods) {
+  //
+  // 2. Fall back to opening_hours.periods logic
+  //
+  const periods = clinic.opening_hours?.periods;
+  if (!periods || periods.length === 0) {
+    // no schedule info, assume closed
     return false;
   }
 
   const now = new Date();
   const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  const currentTime = now.getHours() * 60 + now.getMinutes();
+  const currentTimeMins = now.getHours() * 60 + now.getMinutes();
 
-  const todayPeriod = clinic.opening_hours.periods.find(
-    p => p.open.day === dayOfWeek
-  );
+  // find today's period (assumes Google-style structured hours)
+  const todayPeriod = periods.find(p => p.open?.day === dayOfWeek);
 
-  if (!todayPeriod) {
+  if (!todayPeriod || !todayPeriod.open) {
     return false;
   }
 
-  const openTime = todayPeriod.open.hour * 60 + todayPeriod.open.minute;
-  const closeTime = todayPeriod.close
-    ? todayPeriod.close.hour * 60 + todayPeriod.close.minute
-    : 24 * 60;
+  // some schemas have hour/minute; keep using your existing logic
+  const openTimeMins =
+    todayPeriod.open.hour * 60 + todayPeriod.open.minute;
 
-  return currentTime >= openTime && currentTime < closeTime;
+  const closeTimeMins = todayPeriod.close
+    ? todayPeriod.close.hour * 60 + todayPeriod.close.minute
+    : 24 * 60; // if no close given, assume open until midnight
+
+  return (
+    currentTimeMins >= openTimeMins && currentTimeMins < closeTimeMins
+  );
 }
 
 /**
@@ -312,7 +332,9 @@ export function getTopRated(clinics: Clinic[], limit: number = 10): Clinic[] {
 export function needsDataRefresh(lastFetched: string): boolean {
   const lastDate = new Date(lastFetched);
   const now = new Date();
-  const daysDiff = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+  const daysDiff = Math.floor(
+    (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
   return daysDiff >= 30;
 }
 
