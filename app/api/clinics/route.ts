@@ -380,62 +380,60 @@ export async function GET(request: Request) {
     // -----------------------------------------------------------------------
     // SORTING before pagination
     // -----------------------------------------------------------------------
+    // SORTING before pagination
+    // -----------------------------------------------------------------------
     switch (sort_by) {
-      case 'rating':
+      case 'rating': {
         query = query.order('rating', {
           ascending: sort_order === 'asc',
-          nullsLast: true,
         });
         break;
-
-      case 'reviews':
+      }
+    
+      case 'reviews': {
         query = query.order('user_rating_count', {
           ascending: sort_order === 'asc',
-          nullsLast: true,
         });
         break;
-
-      case 'name':
+      }
+    
+      case 'name': {
         query = query.order('display_name', {
           ascending: sort_order === 'asc',
         });
         break;
-
-      case 'score':
+      }
+    
+      case 'score': {
         // overall_score lives in intelligence_scores JSONB.
-        // Using ->> will treat it as text in Postgres, but we accept that
-        // caveat for now. Good enough for initial sort.
-        query = query.order(
-          'intelligence_scores->>overall_score',
-          {
-            ascending: sort_order === 'asc',
-            nullsLast: true,
-          }
-        );
+        // Using ->> will treat it as text in Postgres, which is fine for now.
+        query = query.order('intelligence_scores->>overall_score', {
+          ascending: sort_order === 'asc',
+        });
         break;
-
-      case 'distance':
-        // NOTE: real distance sorting would require PostGIS or
-        // haversine calc with supplied lat/lng.
-        // We won't attempt server-side distance sort yet.
-        // We'll fall back to rating sort.
+      }
+    
+      case 'distance': {
+        // true distance sort needs PostGIS/haversine, which we don't have yet.
+        // Fallback = sort by rating descending (best clinics first).
         console.warn(
           'Distance sorting requested but not implemented server-side'
         );
         query = query.order('rating', {
           ascending: false,
-          nullsLast: true,
         });
         break;
-
-      default:
-        // same default as your old behavior (implicitly rating desc)
+      }
+    
+      default: {
+        // default behavior = highest rated first
         query = query.order('rating', {
           ascending: false,
-          nullsLast: true,
         });
         break;
+      }
     }
+
 
     // -----------------------------------------------------------------------
     // PAGINATION
