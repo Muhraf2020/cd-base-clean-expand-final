@@ -11,9 +11,10 @@ import dynamic from 'next/dynamic';
 // It's a client boundary, and Next will handle that.
 import { CompareProvider } from '@/contexts/CompareContext';
 
-// Lazy-load the floating compare bar, but WITHOUT { ssr: false }.
-// This keeps code-splitting but satisfies the Server Component rule.
-const CompareFloatingBar = dynamic(() => import('@/components/CompareFloatingBar'));
+// Lazy-load the floating compare bar.
+const CompareFloatingBar = dynamic(
+  () => import('@/components/CompareFloatingBar')
+);
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -59,6 +60,31 @@ export const metadata: Metadata = {
   verification: {
     // google: 'your-google-verification-code',
   },
+
+  // 👇👇 THIS IS THE NEW PART that wires up your icons & manifest
+  icons: {
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.ico' }, // classic fallback
+    ],
+    apple: [
+      {
+        url: '/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
+    other: [
+      {
+        rel: 'manifest',
+        url: '/site.webmanifest',
+      },
+    ],
+  },
+
+  // This becomes <meta name="theme-color" ...> on modern browsers
+  themeColor: '#2563eb',
 };
 
 export default function RootLayout({
@@ -75,9 +101,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* These are fine to keep as explicit fallbacks.
+           Next.js will ALSO inject tags from metadata.icons/themeColor.
+           Having both won't break anything. */}
+
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#2563eb" />
+
         {/* If you use a strict CSP, be sure to allow googletagmanager.com */}
       </head>
 
@@ -91,7 +123,7 @@ export default function RootLayout({
         </CompareProvider>
 
         {/* Global Google Tag (GA4 + Ads)
-           Using lazyOnload so it's not counted as render-blocking. */}
+           Using lazyOnload so it's not render-blocking. */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="lazyOnload"
@@ -116,3 +148,4 @@ export default function RootLayout({
     </html>
   );
 }
+
