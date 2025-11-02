@@ -7,14 +7,13 @@ import './globals.css';
 
 import dynamic from 'next/dynamic';
 
-// Compare context provider stays imported normally (needed at render time)
+// CompareProvider is still fine to render in a Server Component.
+// It's a client boundary, and Next will handle that.
 import { CompareProvider } from '@/contexts/CompareContext';
 
-// ⬇⬇ Lazy-load the floating compare bar so it doesn't ship in the main JS bundle
-const CompareFloatingBar = dynamic(
-  () => import('@/components/CompareFloatingBar'),
-  { ssr: false }
-);
+// Lazy-load the floating compare bar, but WITHOUT { ssr: false }.
+// This keeps code-splitting but satisfies the Server Component rule.
+const CompareFloatingBar = dynamic(() => import('@/components/CompareFloatingBar'));
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -87,15 +86,12 @@ export default function RootLayout({
         <CompareProvider>
           {children}
 
-          {/* Floating compare bar is now dynamically imported.
-             This means: it's still there and still works,
-             but it doesn't block initial LCP/JS hydration on first paint. */}
+          {/* Floating compare bar loads as a separate chunk now */}
           <CompareFloatingBar />
         </CompareProvider>
 
         {/* Global Google Tag (GA4 + Ads)
-           We now load this with lazyOnload so Lighthouse
-           doesn't count it as render-blocking / TBT contributor. */}
+           Using lazyOnload so it's not counted as render-blocking. */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="lazyOnload"
