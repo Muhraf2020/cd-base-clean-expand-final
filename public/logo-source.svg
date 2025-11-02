@@ -1,0 +1,36 @@
+<!-- apple-touch-icon.svg (export as 180x180 PNG, no transparency) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <!-- Background: light → blue vertical gradient -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2563eb"></stop>
+      <stop offset="100%" stop-color="#1e40af"></stop>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded rectangle base -->
+  <rect x="0" y="0" width="180" height="180" rx="36" fill="url(#bgGrad)"></rect>
+
+  <!-- Circle badge / crosshair style locator pin background -->
+  <circle cx="90" cy="70" r="32" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.4)" stroke-width="2"></circle>
+
+  <!-- Simple map pin icon -->
+  <path d="
+      M90 46
+      C78 46,68 56,68 68
+      C68 85,90 104,90 104
+      C90 104,112 85,112 68
+      C112 56,102 46,90 46
+      Z
+    " fill="#ffffff"></path>
+  <circle cx="90" cy="68" r="8" fill="#2563eb"></circle>
+
+  <!-- Text block -->
+  <text x="90" y="132" text-anchor="middle" font-family="Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#ffffff">
+    Derma Clinic
+  </text>
+
+  <text x="90" y="150" text-anchor="middle" font-family="Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="400" fill="rgba(255,255,255,0.9)">
+    Near Me
+  </text>
+</svg>
