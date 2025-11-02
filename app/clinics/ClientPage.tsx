@@ -39,7 +39,7 @@ function ClinicsContent() {
       // 1. First attempt: ask /api/clinics for exactly what the URL is requesting
       //
       const firstParams = new URLSearchParams();
-      firstParams.set('per_page', '5000');
+      firstParams.set('per_page', '300');
 
       if (stateParam) firstParams.set('state', stateParam);
       if (cityParam) firstParams.set('city', cityParam);
@@ -67,7 +67,7 @@ function ClinicsContent() {
       if (hasLatLng && loadedClinics.length === 0) {
         try {
           const noCoordParams = new URLSearchParams();
-          noCoordParams.set('per_page', '5000');
+          noCoordParams.set('per_page', '300');
           if (stateParam) noCoordParams.set('state', stateParam);
           if (cityParam) noCoordParams.set('city', cityParam);
           if (searchQuery) noCoordParams.set('q', searchQuery);
@@ -90,7 +90,7 @@ function ClinicsContent() {
       if (searchQuery && loadedClinics.length === 0) {
         try {
           const noQParams = new URLSearchParams();
-          noQParams.set('per_page', '5000');
+          noQParams.set('per_page', '300');
           if (stateParam) noQParams.set('state', stateParam);
           if (cityParam) noQParams.set('city', cityParam);
           // IMPORTANT: do NOT include `q`, and do NOT include lat/lng here.
