@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import ComparisonFeatureBox from '@/components/ComparisonFeatureBox';
+import Logo from '@/components/Logo'; // ⬅ NEW
 
 // Lazy-load interactive islands as separate chunks.
 // Important: no `{ ssr: false }` here, because this file is a Server Component.
@@ -19,7 +20,32 @@ const StateGridClient = dynamic(
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      {/* Hero Section - Mobile Optimized */}
+      {/* Top Nav with Logo */}
+      <header className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          {/* Brand / home link */}
+          <Logo />
+
+          {/* Right side actions */}
+          <div className="flex items-center gap-4 sm:gap-6 text-sm sm:text-base">
+            <Link
+              href="/advertise"
+              className="text-gray-700 hover:text-blue-600 font-medium"
+            >
+              Advertise
+            </Link>
+
+            <Link
+              href="/add-clinic"
+              className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 shadow-sm"
+            >
+              List Your Clinic
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
       <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
           <div className="text-center">
@@ -40,7 +66,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Sticky Search Bar - Mobile Optimized */}
+      {/* Sticky Search Bar */}
       <div className="sticky top-0 z-50 bg-white shadow-md">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4">
           {/* Client wrapper handles router navigation & geolocation */}
@@ -48,8 +74,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Stats Section - Mobile Optimized */}
-      {/* Uses your existing StatsSection client component */}
+      {/* Stats Section */}
       <StatsSection />
 
       {/* Feature promo box */}
@@ -430,7 +455,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* States Grid Section - Mobile Optimized */}
+      {/* States Grid Section */}
       <section id="browse-by-state" className="py-8 sm:py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-12">
@@ -447,7 +472,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* About Section - Mobile Optimized */}
+      {/* About Section */}
       <section className="py-8 sm:py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-8 sm:mb-12">
@@ -538,7 +563,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer - Mobile Optimized */}
+      {/* Footer */}
       <footer className="bg-gray-900 text-white mt-12 sm:mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
