@@ -5,17 +5,17 @@ import { useRouter } from 'next/navigation';
 
 interface SearchBarProps {
   // Optional callbacks.
-  // If provided, we still call them so the clinics page can update immediately.
-  // But we ALSO push a new URL so ClinicsContent refetches correctly.
+  // If provided, we use them (Clinics page mode).
+  // If not provided, we navigate with router (Home page mode).
   onSearch?: (query: string) => void;
   onLocationSearch?: (lat: number, lng: number) => void;
 }
 
-type FilterChip = {
+interface FilterChip {
   label: string;
   query: string | null; // null means "All"
   icon: string;
-};
+}
 
 export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps) {
   const [query, setQuery] = useState('');
@@ -23,21 +23,21 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
   const [showAllFilters, setShowAllFilters] = useState(false);
   const router = useRouter();
 
-  // Helper: run a text search (from the text input / Search button / Enter key)
+  // Helper: run a text search (or reset)
   const submitSearch = (q: string) => {
     const trimmed = q.trim();
 
+    // If the parent (Clinics page) gave us onSearch, use local filtering
     if (onSearch) {
-      // Let clinics page update visible list right away
       onSearch(trimmed);
-    }
-
-    // Update the URL so ClinicsContent will re-run loadClinics()
-    if (trimmed) {
-      router.push(`/clinics?q=${encodeURIComponent(trimmed)}`);
     } else {
-      // empty query means: show everything again
-      router.push('/clinics');
+      // We're on the home page: navigate to /clinics
+      if (trimmed) {
+        router.push(`/clinics?q=${encodeURIComponent(trimmed)}`);
+      } else {
+        // empty = "All" / reset
+        router.push('/clinics');
+      }
     }
   };
 
@@ -46,43 +46,31 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
     submitSearch(query);
   };
 
-  // Quick filter pills (including "All")
-  const handleQuickFilter = (term: string | null) => {
+  // Quick category pill click
+  function handleQuickFilter(term: string | null) {
     if (term === null) {
-      // "All" pill: reset to full directory, clear query
+      // "All"
       setQuery('');
-
-      // tell parent to reset (if on clinics page)
-      if (onSearch) {
-        onSearch('');
-      }
-
-      // navigate with NO q so backend returns broad data
-      router.push('/clinics');
+      submitSearch('');
       return;
     }
 
-    // For anything else (cosmetic, pediatric, etc.)
     setQuery(term);
+    submitSearch(term);
+  }
 
-    if (onSearch) {
-      onSearch(term);
-    }
-
-    router.push(`/clinics?q=${encodeURIComponent(term)}`);
-  };
-
-  // Helper to actually "go near me" once we HAVE lat/lng
+  // After we get coords (either live or cached), decide how to handle them
   const goToLocation = (lat: number, lng: number) => {
     if (onLocationSearch) {
-      // Clinics page: update local sorting immediately
+      // Clinics page mode: sort/filter in-memory
       onLocationSearch(lat, lng);
+    } else {
+      // Home page mode: go to /clinics with lat/lng
+      router.push(`/clinics?lat=${lat}&lng=${lng}`);
     }
-    // Always push coords into URL so the page can refetch radius-based data
-    router.push(`/clinics?lat=${lat}&lng=${lng}`);
   };
 
-  // Try cached last-known location if geolocation fails or stalls
+  // Try to reuse cached location if browser location fails
   const tryCachedLocationOrAlert = () => {
     try {
       const raw = localStorage.getItem('lastKnownLocation');
@@ -97,7 +85,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
           typeof lat === 'number' &&
           typeof lng === 'number' &&
           typeof ts === 'number' &&
-          Date.now() - ts < 24 * 60 * 60 * 1000; // <24h old
+          Date.now() - ts < 24 * 60 * 60 * 1000; // <24h
 
         if (freshEnough) {
           goToLocation(lat, lng);
@@ -105,7 +93,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         }
       }
     } catch {
-      /* ignore JSON parse/storage issues */
+      /* ignore bad cache */
     }
 
     alert('Unable to get your location. Please allow location access and try again.');
@@ -119,7 +107,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
 
     setIsUsingLocation(true);
 
-    // failsafe timeout in case browser never resolves
+    // failsafe if browser never calls back
     const failSafe = setTimeout(() => {
       setIsUsingLocation(false);
       tryCachedLocationOrAlert();
@@ -130,7 +118,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         clearTimeout(failSafe);
         const { latitude, longitude } = position.coords;
 
-        // cache last known coordinates for fallback
+        // cache for fallback reuse
         try {
           localStorage.setItem(
             'lastKnownLocation',
@@ -141,7 +129,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
             })
           );
         } catch {
-          /* ignore storage failure (private mode, etc.) */
+          /* private mode etc */
         }
 
         setIsUsingLocation(false);
@@ -154,51 +142,51 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         tryCachedLocationOrAlert();
       },
       {
-        enableHighAccuracy: false, // faster / more reliable in practice
+        enableHighAccuracy: false,
         timeout: 8000,
-        maximumAge: 120000, // up to 2 minutes cached GPS is acceptable
+        maximumAge: 120000, // up to 2 min old fix is fine
       }
     );
   };
 
   //
-  // Filter chip definitions
+  // Quick filter chips
   //
+
+  // Top row chips (always visible)
   const mainFilters: FilterChip[] = [
-    { label: 'All',           query: null,              icon: '🏥' },
-    { label: 'Acne',          query: 'acne',            icon: '💊' },
-    { label: 'Cosmetic',      query: 'cosmetic',        icon: '✨' },
-    { label: 'Pediatric',     query: 'pediatric',       icon: '👶' },
-    { label: 'Skin Cancer',   query: 'skin cancer',     icon: '🎗️' },
+    { label: 'All',         query: null,          icon: '🏥' },
+    { label: 'Acne',        query: 'acne',        icon: '💊' },
+    { label: 'Cosmetic',    query: 'cosmetic',    icon: '✨' },
+    { label: 'Pediatric',   query: 'pediatric',   icon: '👶' },
+    { label: 'Skin Cancer', query: 'skin cancer', icon: '🎗️' },
   ];
 
+  // Extra clinical specialties (optional "Show more")
   const specialtyFilters: FilterChip[] = [
-    { label: 'Mohs Surgery',      query: 'mohs surgery',      icon: '🔬' },
-    { label: 'Botox/Fillers',     query: 'botox filler',      icon: '💉' },
-    { label: 'Laser Treatment',   query: 'laser',             icon: '⚡' },
-    { label: 'Hair Loss',         query: 'hair loss',         icon: '💇' },
-    { label: 'Eczema',            query: 'eczema',            icon: '🩹' },
-    { label: 'Psoriasis',         query: 'psoriasis',         icon: '🔴' },
-    { label: 'Rosacea',           query: 'rosacea',           icon: '🌹' },
-    { label: 'Wart Removal',      query: 'wart removal',      icon: '🔧' },
+    { label: 'Mohs Surgery',    query: 'mohs surgery',    icon: '🔬' },
+    { label: 'Botox/Fillers',   query: 'botox filler',    icon: '💉' },
+    { label: 'Laser Treatment', query: 'laser',           icon: '⚡' },
+    { label: 'Hair Loss',       query: 'hair loss',       icon: '💇' },
+    { label: 'Eczema',          query: 'eczema',          icon: '🩹' },
+    { label: 'Psoriasis',       query: 'psoriasis',       icon: '🔴' },
+    { label: 'Rosacea',         query: 'rosacea',         icon: '🌹' },
+    { label: 'Wart Removal',    query: 'wart removal',    icon: '🔧' },
   ];
 
-  const amenityFilters: FilterChip[] = [
-    { label: 'Open Now',          query: 'open now',               icon: '🟢' },
-    { label: 'Online Booking',    query: 'online booking',         icon: '📱' },
-    { label: 'Telehealth',        query: 'telehealth',             icon: '💻' },
-    { label: 'Wheelchair Access', query: 'wheelchair accessible',  icon: '♿' },
-    { label: 'Free Parking',      query: 'free parking',           icon: '🅿️' },
-  ];
-
+  // We removed amenityFilters because those are already covered
+  // in the left sidebar FilterPanel.
+  //
+  // Before: allFilters = [...mainFilters, ...specialtyFilters, ...amenityFilters]
+  // After:  just main + specialty.
   const allFilters: FilterChip[] = showAllFilters
-    ? [...mainFilters, ...specialtyFilters, ...amenityFilters]
+    ? [...mainFilters, ...specialtyFilters]
     : mainFilters;
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-        {/* Text input */}
+        {/* Search Input */}
         <div className="flex-1 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg
@@ -224,7 +212,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
           />
         </div>
 
-        {/* Buttons (Near Me / Search) */}
+        {/* Buttons Container */}
         <div className="flex gap-2 sm:gap-3">
           {/* Near Me */}
           <button
@@ -235,7 +223,10 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
           >
             {isUsingLocation ? (
               <>
-                <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24">
+                <svg
+                  className="animate-spin h-4 w-4 sm:h-5 sm:w-5"
+                  viewBox="0 0 24 24"
+                >
                   <circle
                     className="opacity-25"
                     cx="12"
@@ -271,7 +262,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         </div>
       </div>
 
-      {/* Quick filter chips */}
+      {/* Quick Filters row(s) */}
       <div className="mt-2 sm:mt-3">
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide pb-2">
           {allFilters.map((filter) => (
@@ -296,24 +287,44 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
           {showAllFilters ? (
             <>
               <span>Show Less</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 15l7-7 7 7"
+                />
               </svg>
             </>
           ) : (
             <>
               <span>
-                Show More Filters ({specialtyFilters.length + amenityFilters.length} more)
+                Show More Filters ({specialtyFilters.length} more)
               </span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </>
           )}
         </button>
       </div>
 
-      {/* hide scrollbar on mobile */}
+      {/* Hide scrollbar on mobile */}
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
