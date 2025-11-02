@@ -28,12 +28,14 @@ export default function Home() {
 
           {/* Right side actions */}
           <div className="flex items-center gap-4 sm:gap-6 text-sm sm:text-base">
+            {/*
             <Link
               href="/advertise"
               className="text-gray-700 hover:text-blue-600 font-medium"
             >
               Advertise
             </Link>
+            */}
 
             <Link
               href="/add-clinic"
