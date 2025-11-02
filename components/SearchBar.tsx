@@ -183,6 +183,14 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
     { label: 'Wart Removal',      query: 'wart removal',      icon: '🔧' },
   ];
 
+  const amenityFilters: FilterChip[] = [
+    { label: 'Open Now',          query: 'open now',               icon: '🟢' },
+    { label: 'Online Booking',    query: 'online booking',         icon: '📱' },
+    { label: 'Telehealth',        query: 'telehealth',             icon: '💻' },
+    { label: 'Wheelchair Access', query: 'wheelchair accessible',  icon: '♿' },
+    { label: 'Free Parking',      query: 'free parking',           icon: '🅿️' },
+  ];
+
   const allFilters: FilterChip[] = showAllFilters
     ? [...mainFilters, ...specialtyFilters, ...amenityFilters]
     : mainFilters;
