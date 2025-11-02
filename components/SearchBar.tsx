@@ -5,11 +5,17 @@ import { useRouter } from 'next/navigation';
 
 interface SearchBarProps {
   // Optional callbacks.
-  // If provided, we use them (Clinics page mode).
-  // If not provided, we navigate with router (Home page mode).
+  // If provided, we still call them so the clinics page can update immediately.
+  // But we ALSO push a new URL so ClinicsContent refetches correctly.
   onSearch?: (query: string) => void;
   onLocationSearch?: (lat: number, lng: number) => void;
 }
+
+type FilterChip = {
+  label: string;
+  query: string | null; // null means "All"
+  icon: string;
+};
 
 export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps) {
   const [query, setQuery] = useState('');
@@ -17,19 +23,21 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
   const [showAllFilters, setShowAllFilters] = useState(false);
   const router = useRouter();
 
-  // Helper: run a text search
+  // Helper: run a text search (from the text input / Search button / Enter key)
   const submitSearch = (q: string) => {
     const trimmed = q.trim();
-    
-    // ✅ Now allows empty query to reset filters
+
     if (onSearch) {
+      // Let clinics page update visible list right away
       onSearch(trimmed);
+    }
+
+    // Update the URL so ClinicsContent will re-run loadClinics()
+    if (trimmed) {
+      router.push(`/clinics?q=${encodeURIComponent(trimmed)}`);
     } else {
-      if (trimmed) {
-        router.push(`/clinics?q=${encodeURIComponent(trimmed)}`);
-      } else {
-        router.push('/clinics');
-      }
+      // empty query means: show everything again
+      router.push('/clinics');
     }
   };
 
@@ -38,23 +46,43 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
     submitSearch(query);
   };
 
-  const handleQuickFilter = (filterQuery: string) => {
-    setQuery(filterQuery);
-    submitSearch(filterQuery);
+  // Quick filter pills (including "All")
+  const handleQuickFilter = (term: string | null) => {
+    if (term === null) {
+      // "All" pill: reset to full directory, clear query
+      setQuery('');
+
+      // tell parent to reset (if on clinics page)
+      if (onSearch) {
+        onSearch('');
+      }
+
+      // navigate with NO q so backend returns broad data
+      router.push('/clinics');
+      return;
+    }
+
+    // For anything else (cosmetic, pediatric, etc.)
+    setQuery(term);
+
+    if (onSearch) {
+      onSearch(term);
+    }
+
+    router.push(`/clinics?q=${encodeURIComponent(term)}`);
   };
 
   // Helper to actually "go near me" once we HAVE lat/lng
   const goToLocation = (lat: number, lng: number) => {
     if (onLocationSearch) {
-      // Clinics page: just sort/filter in-memory by distance
+      // Clinics page: update local sorting immediately
       onLocationSearch(lat, lng);
-    } else {
-      // Home page: navigate to clinics with coords in URL
-      router.push(`/clinics?lat=${lat}&lng=${lng}`);
     }
+    // Always push coords into URL so the page can refetch radius-based data
+    router.push(`/clinics?lat=${lat}&lng=${lng}`);
   };
 
-  // Try using cached last-known location if geolocation fails or stalls
+  // Try cached last-known location if geolocation fails or stalls
   const tryCachedLocationOrAlert = () => {
     try {
       const raw = localStorage.getItem('lastKnownLocation');
@@ -65,12 +93,11 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
           ts: number;
         };
 
-        // only trust cache if it's recent (<24h) and numbers are valid
         const freshEnough =
           typeof lat === 'number' &&
           typeof lng === 'number' &&
           typeof ts === 'number' &&
-          Date.now() - ts < 24 * 60 * 60 * 1000;
+          Date.now() - ts < 24 * 60 * 60 * 1000; // <24h old
 
         if (freshEnough) {
           goToLocation(lat, lng);
@@ -78,14 +105,13 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         }
       }
     } catch {
-      /* ignore JSON parse issues */
+      /* ignore JSON parse/storage issues */
     }
 
     alert('Unable to get your location. Please allow location access and try again.');
   };
 
   const getUserLocation = () => {
-    // guard: browser support
     if (!('geolocation' in navigator)) {
       alert('Geolocation is not supported in this browser.');
       return;
@@ -93,7 +119,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
 
     setIsUsingLocation(true);
 
-    // failsafe in case the browser never calls success/error (Safari/iOS quirk)
+    // failsafe timeout in case browser never resolves
     const failSafe = setTimeout(() => {
       setIsUsingLocation(false);
       tryCachedLocationOrAlert();
@@ -104,7 +130,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         clearTimeout(failSafe);
         const { latitude, longitude } = position.coords;
 
-        // cache this location for future fast clicks / fallback
+        // cache last known coordinates for fallback
         try {
           localStorage.setItem(
             'lastKnownLocation',
@@ -115,7 +141,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
             })
           );
         } catch {
-          /* storage may fail in private mode; ignore */
+          /* ignore storage failure (private mode, etc.) */
         }
 
         setIsUsingLocation(false);
@@ -125,53 +151,54 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         clearTimeout(failSafe);
         console.error('Geolocation error:', error);
         setIsUsingLocation(false);
-        // try cached coord, otherwise alert
         tryCachedLocationOrAlert();
       },
       {
-        enableHighAccuracy: false, // more reliable & faster across devices
+        enableHighAccuracy: false, // faster / more reliable in practice
         timeout: 8000,
-        maximumAge: 120000, // up to 2 minutes-old cached GPS fix is OK
+        maximumAge: 120000, // up to 2 minutes cached GPS is acceptable
       }
     );
   };
 
-  // Define all filter categories
-  const mainFilters = [
-    { label: 'All', query: '', icon: '🏥' },
-    { label: 'Acne', query: 'acne', icon: '💊' },
-    { label: 'Cosmetic', query: 'cosmetic', icon: '✨' },
-    { label: 'Pediatric', query: 'pediatric', icon: '👶' },
-    { label: 'Skin Cancer', query: 'skin cancer', icon: '🎗️' },
+  //
+  // Filter chip definitions
+  //
+  const mainFilters: FilterChip[] = [
+    { label: 'All',           query: null,              icon: '🏥' },
+    { label: 'Acne',          query: 'acne',            icon: '💊' },
+    { label: 'Cosmetic',      query: 'cosmetic',        icon: '✨' },
+    { label: 'Pediatric',     query: 'pediatric',       icon: '👶' },
+    { label: 'Skin Cancer',   query: 'skin cancer',     icon: '🎗️' },
   ];
 
-  const specialtyFilters = [
-    { label: 'Mohs Surgery', query: 'mohs surgery', icon: '🔬' },
-    { label: 'Botox/Fillers', query: 'botox filler', icon: '💉' },
-    { label: 'Laser Treatment', query: 'laser', icon: '⚡' },
-    { label: 'Hair Loss', query: 'hair loss', icon: '💇' },
-    { label: 'Eczema', query: 'eczema', icon: '🩹' },
-    { label: 'Psoriasis', query: 'psoriasis', icon: '🔴' },
-    { label: 'Rosacea', query: 'rosacea', icon: '🌹' },
-    { label: 'Wart Removal', query: 'wart removal', icon: '🔧' },
+  const specialtyFilters: FilterChip[] = [
+    { label: 'Mohs Surgery',      query: 'mohs surgery',      icon: '🔬' },
+    { label: 'Botox/Fillers',     query: 'botox filler',      icon: '💉' },
+    { label: 'Laser Treatment',   query: 'laser',             icon: '⚡' },
+    { label: 'Hair Loss',         query: 'hair loss',         icon: '💇' },
+    { label: 'Eczema',            query: 'eczema',            icon: '🩹' },
+    { label: 'Psoriasis',         query: 'psoriasis',         icon: '🔴' },
+    { label: 'Rosacea',           query: 'rosacea',           icon: '🌹' },
+    { label: 'Wart Removal',      query: 'wart removal',      icon: '🔧' },
   ];
 
-  const amenityFilters = [
-    { label: 'Open Now', query: 'open now', icon: '🟢' },
-    { label: 'Online Booking', query: 'online booking', icon: '📱' },
-    { label: 'Telehealth', query: 'telehealth', icon: '💻' },
-    { label: 'Wheelchair Access', query: 'wheelchair accessible', icon: '♿' },
-    { label: 'Free Parking', query: 'free parking', icon: '🅿️' },
+  const amenityFilters: FilterChip[] = [
+    { label: 'Open Now',          query: 'open now',               icon: '🟢' },
+    { label: 'Online Booking',    query: 'online booking',         icon: '📱' },
+    { label: 'Telehealth',        query: 'telehealth',             icon: '💻' },
+    { label: 'Wheelchair Access', query: 'wheelchair accessible',  icon: '♿' },
+    { label: 'Free Parking',      query: 'free parking',           icon: '🅿️' },
   ];
 
-  const allFilters = showAllFilters 
+  const allFilters: FilterChip[] = showAllFilters
     ? [...mainFilters, ...specialtyFilters, ...amenityFilters]
     : mainFilters;
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-        {/* Search Input */}
+        {/* Text input */}
         <div className="flex-1 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg
@@ -197,9 +224,9 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
           />
         </div>
 
-        {/* Buttons Container */}
+        {/* Buttons (Near Me / Search) */}
         <div className="flex gap-2 sm:gap-3">
-          {/* Near Me Button */}
+          {/* Near Me */}
           <button
             type="button"
             onClick={getUserLocation}
@@ -234,7 +261,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
             )}
           </button>
 
-          {/* Search Button */}
+          {/* Search */}
           <button
             type="submit"
             className="flex-1 sm:flex-none px-6 sm:px-8 py-2 sm:py-3 bg-blue-600 text-white text-sm sm:text-base font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-colors whitespace-nowrap"
@@ -244,7 +271,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         </div>
       </div>
 
-      {/* Quick Filters */}
+      {/* Quick filter chips */}
       <div className="mt-2 sm:mt-3">
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide pb-2">
           {allFilters.map((filter) => (
@@ -260,7 +287,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
           ))}
         </div>
 
-        {/* Show More/Less Button */}
+        {/* Show More / Show Less */}
         <button
           type="button"
           onClick={() => setShowAllFilters(!showAllFilters)}
@@ -275,7 +302,9 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
             </>
           ) : (
             <>
-              <span>Show More Filters ({specialtyFilters.length + amenityFilters.length} more)</span>
+              <span>
+                Show More Filters ({specialtyFilters.length + amenityFilters.length} more)
+              </span>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
@@ -284,7 +313,7 @@ export default function SearchBar({ onSearch, onLocationSearch }: SearchBarProps
         </button>
       </div>
 
-      {/* Hide scrollbar on mobile */}
+      {/* hide scrollbar on mobile */}
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
