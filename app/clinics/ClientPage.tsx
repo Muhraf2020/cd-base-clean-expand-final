@@ -402,7 +402,7 @@ function ClinicsContent() {
               <h2 className="text-xl font-semibold text-gray-900">
                 {loading
                   ? 'Loading...'
-                  : `${filteredClinics.length} clinics found`}
+                  : `${filteredClinics.length} clinics shown`}
               </h2>
             </div>
 
