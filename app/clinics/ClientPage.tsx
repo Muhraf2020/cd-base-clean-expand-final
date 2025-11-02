@@ -29,22 +29,14 @@ function ClinicsContent() {
   const [filters, setFilters] = useState<FilterOptions>({});
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
-  // Load clinics whenever location/search context changes
-  useEffect(() => {
-    loadClinics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateParam, cityParam, searchQuery, latParam, lngParam]);
-
-  // Fetch clinics from API, allow backend to radius-filter if coords exist,
-  // then apply frontend fallback + distance ordering
-    // Fetch clinics from API, allow backend to radius-filter if coords exist,
-  // then apply smart fallbacks so category buttons / free-text searches work.
+  // Fetch clinics from API, apply intelligent fallbacks so that
+  // category buttons ("cosmetic", "pediatric", etc.) still work.
   const loadClinics = async () => {
     try {
       setLoading(true);
 
       //
-      // 1. First attempt: ask /api/clinics for exactly what the URL says
+      // 1. First attempt: ask /api/clinics for exactly what the URL is requesting
       //
       const firstParams = new URLSearchParams();
       firstParams.set('per_page', '5000');
@@ -70,7 +62,7 @@ function ClinicsContent() {
 
       //
       // 2a. Fallback if we have coords but got 0 results:
-      //     Try again WITHOUT lat/lng so we at least get a wide list.
+      //     Try again WITHOUT lat/lng so we at least get a wider list.
       //
       if (hasLatLng && loadedClinics.length === 0) {
         try {
@@ -92,8 +84,8 @@ function ClinicsContent() {
 
       //
       // 2b. Fallback if user searched something (like "cosmetic")
-      //     but backend STILL returned 0 after step 1/2a:
-      //     Pull a big list with NO q at all and do fuzzy filtering on the client.
+      //     but backend STILL returned 0 after step 1 / 2a:
+      //     Pull a big list with NO q at all and fuzzy-filter here.
       //
       if (searchQuery && loadedClinics.length === 0) {
         try {
@@ -113,9 +105,9 @@ function ClinicsContent() {
           const lowered = trimmed.toLowerCase();
           const isZip = /^\d{5}$/.test(trimmed);
 
-          // Reuse same matching logic you already use in handleSearch()
+          // Approximate the same logic used in handleSearch()
           loadedClinics = universe.filter((c) => {
-            // Exact ZIP match case
+            // Exact ZIP match
             if (isZip) {
               return c.postal_code === trimmed;
             }
@@ -181,6 +173,11 @@ function ClinicsContent() {
     }
   };
 
+  // Load clinics whenever location/search context changes
+  useEffect(() => {
+    loadClinics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stateParam, cityParam, searchQuery, latParam, lngParam]);
 
   // Local text search (SearchBar → onSearch)
   const handleSearch = (query: string) => {
@@ -205,7 +202,9 @@ function ClinicsContent() {
         ${clinic.state_code || ''} 
         ${clinic.types?.join(' ') || ''} 
         ${clinic.primary_type || ''}
-      `.toLowerCase();
+      `
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
 
       return searchableText.includes(lowerQuery);
     });
@@ -214,13 +213,16 @@ function ClinicsContent() {
   };
 
   // Local "Near Me" sort (SearchBar → onLocationSearch).
-  // Note: this does NOT refetch, it just sorts what we already have.
+  // This does NOT refetch. It just sorts what we already have.
   const handleLocationSearch = (lat: number, lng: number) => {
     const clinicsWithDistance = clinics.map((clinic) => ({
       ...clinic,
       distance: calculateDistance(
         { lat, lng },
-        { lat: clinic.location.lat, lng: clinic.location.lng }
+        {
+          lat: clinic.location?.lat ?? 0,
+          lng: clinic.location?.lng ?? 0,
+        }
       ),
     }));
 
@@ -331,7 +333,7 @@ function ClinicsContent() {
                   ? `${cityParam}, ${stateParam || ''} `
                   : stateParam
                   ? `${stateParam} `
-                  : ''}
+                  : ''}{' '}
                 Dermatology Clinics
               </h1>
               <p className="text-sm text-gray-600 mt-1">
