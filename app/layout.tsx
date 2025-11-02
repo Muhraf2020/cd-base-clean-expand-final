@@ -5,9 +5,16 @@ import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 
-// ⬇⬇ NEW: comparison feature provider / UI bar
+import dynamic from 'next/dynamic';
+
+// Compare context provider stays imported normally (needed at render time)
 import { CompareProvider } from '@/contexts/CompareContext';
-import CompareFloatingBar from '@/components/CompareFloatingBar';
+
+// ⬇⬇ Lazy-load the floating compare bar so it doesn't ship in the main JS bundle
+const CompareFloatingBar = dynamic(
+  () => import('@/components/CompareFloatingBar'),
+  { ssr: false }
+);
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -76,19 +83,25 @@ export default function RootLayout({
       </head>
 
       <body className={inter.className}>
-        {/* 🔥 Global comparison state + floating bar lives here */}
+        {/* Global comparison state provider wraps the whole app */}
         <CompareProvider>
           {children}
+
+          {/* Floating compare bar is now dynamically imported.
+             This means: it's still there and still works,
+             but it doesn't block initial LCP/JS hydration on first paint. */}
           <CompareFloatingBar />
         </CompareProvider>
 
-        {/* Global Google Tag (GA4 + Ads) */}
+        {/* Global Google Tag (GA4 + Ads)
+           We now load this with lazyOnload so Lighthouse
+           doesn't count it as render-blocking / TBT contributor. */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
 
-        <Script id="gtag-init" strategy="afterInteractive">
+        <Script id="gtag-init" strategy="lazyOnload">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
