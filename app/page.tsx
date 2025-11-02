@@ -1,24 +1,20 @@
-// app/page.tsx
-// NOTE: intentionally NO 'use client' here.
-// This is now a Server Component for fast initial paint.
-
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import ComparisonFeatureBox from '@/components/ComparisonFeatureBox';
 
-// Lazily load the interactive islands.
-// These components themselves can still be 'use client' internally.
-const SearchBarClient = dynamic(() => import('@/components/SearchBar'), {
-  ssr: false,
-});
+// Lazy-load interactive islands as separate chunks.
+// Important: no `{ ssr: false }` here, because this file is a Server Component.
+const SearchBarClient = dynamic(
+  () => import('@/components/SearchBarClientWrapper')
+);
 
-const StatsSection = dynamic(() => import('@/components/StatsSection'), {
-  ssr: false,
-});
+const StatsSection = dynamic(
+  () => import('@/components/StatsSection')
+);
 
-const StateGridClient = dynamic(() => import('@/components/StateGrid'), {
-  ssr: false,
-});
+const StateGridClient = dynamic(
+  () => import('@/components/StateGrid')
+);
 
 export default function Home() {
   return (
@@ -40,9 +36,6 @@ export default function Home() {
             >
               Add Your Clinic
             </Link>
-
-            {/* (This second Link rendered nothing visible before, so leaving it out is cleaner.
-                If you truly need an empty link for any reason, you can add it back.) */}
           </div>
         </div>
       </header>
@@ -50,16 +43,16 @@ export default function Home() {
       {/* Sticky Search Bar - Mobile Optimized */}
       <div className="sticky top-0 z-50 bg-white shadow-md">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4">
-          {/* SearchBar needs router + geolocation etc., so it stays client-side */}
+          {/* Client wrapper handles router navigation & geolocation */}
           <SearchBarClient />
         </div>
       </div>
 
       {/* Stats Section - Mobile Optimized */}
-      {/* We now use your dedicated StatsSection client component instead of inline state/effect */}
+      {/* Uses your existing StatsSection client component */}
       <StatsSection />
 
-      {/* 🔥 NEW FEATURE BOX INSERTED HERE */}
+      {/* Feature promo box */}
       <ComparisonFeatureBox />
 
       {/* Credibility & Value Proposition Section */}
@@ -449,7 +442,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* StateGrid needs client-side interactivity, so we keep it isolated */}
+          {/* Client component that renders the list of states */}
           <StateGridClient />
         </div>
       </section>
