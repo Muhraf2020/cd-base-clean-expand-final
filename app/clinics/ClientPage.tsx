@@ -251,7 +251,8 @@ function ClinicsContent() {
 
     if (filters.wheelchair_accessible) {
       next = next.filter(
-        (c) => c.accessibility_options?.wheelchair_accessible_entrance === true
+        (c) =>
+          c.accessibility_options?.wheelchair_accessible_entrance === true
       );
     }
 
@@ -409,6 +410,7 @@ function ClinicsContent() {
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4 sm:gap-6">
                 {loading ? (
+                  // skeletons
                   Array.from({ length: 6 }).map((_, i) => (
                     <div
                       key={i}
@@ -420,10 +422,25 @@ function ClinicsContent() {
                     </div>
                   ))
                 ) : filteredClinics.length === 0 ? (
-                  <div className="col-span-full text-center py-12">
+                  // empty state with recovery CTA
+                  <div className="col-span-full text-center py-12 space-y-4">
                     <p className="text-gray-500 text-lg">
-                      No clinics found. Try adjusting your filters.
+                      No clinics found with those filters.
                     </p>
+
+                    <button
+                      className="inline-block px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                      onClick={() => {
+                        // 1. clear all local filters
+                        setFilters({});
+
+                        // 2. force a broad fetch again:
+                        //    navigate to /clinics with no query params at all
+                        window.location.href = '/clinics';
+                      }}
+                    >
+                      Clear filters and show all clinics
+                    </button>
                   </div>
                 ) : (
                   filteredClinics.map((clinic) => (
