@@ -37,43 +37,114 @@ function ClinicsContent() {
 
   // Fetch clinics from API, allow backend to radius-filter if coords exist,
   // then apply frontend fallback + distance ordering
+    // Fetch clinics from API, allow backend to radius-filter if coords exist,
+  // then apply smart fallbacks so category buttons / free-text searches work.
   const loadClinics = async () => {
     try {
       setLoading(true);
 
-      // 1. Build API URL
-      let url = '/api/clinics?per_page=5000';
-      if (stateParam) url += `&state=${stateParam}`;
-      if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
-      if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
+      //
+      // 1. First attempt: ask /api/clinics for exactly what the URL says
+      //
+      const firstParams = new URLSearchParams();
+      firstParams.set('per_page', '5000');
 
-      // keep sending coords when present (so backend can do radius search)
+      if (stateParam) firstParams.set('state', stateParam);
+      if (cityParam) firstParams.set('city', cityParam);
+      if (searchQuery) firstParams.set('q', searchQuery);
+
+      // include coords if present so backend can run its "near me" logic
       if (latParam && lngParam) {
-        url += `&lat=${latParam}&lng=${lngParam}`;
+        firstParams.set('lat', latParam);
+        firstParams.set('lng', lngParam);
       }
 
-      const res = await fetch(url);
-      const data = await res.json();
+      const firstRes = await fetch(`/api/clinics?${firstParams.toString()}`);
+      const firstData = await firstRes.json();
 
       const hasLatLng = !!(latParam && lngParam);
       const userLat = hasLatLng ? parseFloat(latParam as string) : NaN;
       const userLng = hasLatLng ? parseFloat(lngParam as string) : NaN;
 
-      let loadedClinics: Clinic[] = data.clinics || [];
+      let loadedClinics: Clinic[] = firstData.clinics || [];
 
-      // 2. Fallback: backend returned nothing even though we have coords?
-      // Grab a broad list (nationwide) and sort locally.
+      //
+      // 2a. Fallback if we have coords but got 0 results:
+      //     Try again WITHOUT lat/lng so we at least get a wide list.
+      //
       if (hasLatLng && loadedClinics.length === 0) {
         try {
-          const broad = await fetch('/api/clinics?per_page=5000');
-          const broadData = await broad.json();
+          const noCoordParams = new URLSearchParams();
+          noCoordParams.set('per_page', '5000');
+          if (stateParam) noCoordParams.set('state', stateParam);
+          if (cityParam) noCoordParams.set('city', cityParam);
+          if (searchQuery) noCoordParams.set('q', searchQuery);
+
+          const broadRes = await fetch(
+            `/api/clinics?${noCoordParams.toString()}`
+          );
+          const broadData = await broadRes.json();
           loadedClinics = broadData.clinics || [];
         } catch (e) {
-          console.error('Fallback broad fetch failed', e);
+          console.error('Fallback broad fetch (no coords) failed', e);
         }
       }
 
-      // 3. If we know user coords, keep nearest-first ordering on the client
+      //
+      // 2b. Fallback if user searched something (like "cosmetic")
+      //     but backend STILL returned 0 after step 1/2a:
+      //     Pull a big list with NO q at all and do fuzzy filtering on the client.
+      //
+      if (searchQuery && loadedClinics.length === 0) {
+        try {
+          const noQParams = new URLSearchParams();
+          noQParams.set('per_page', '5000');
+          if (stateParam) noQParams.set('state', stateParam);
+          if (cityParam) noQParams.set('city', cityParam);
+          // IMPORTANT: do NOT include `q`, and do NOT include lat/lng here.
+
+          const broadNoQRes = await fetch(
+            `/api/clinics?${noQParams.toString()}`
+          );
+          const broadNoQData = await broadNoQRes.json();
+          const universe: Clinic[] = broadNoQData.clinics || [];
+
+          const trimmed = searchQuery.trim();
+          const lowered = trimmed.toLowerCase();
+          const isZip = /^\d{5}$/.test(trimmed);
+
+          // Reuse same matching logic you already use in handleSearch()
+          loadedClinics = universe.filter((c) => {
+            // Exact ZIP match case
+            if (isZip) {
+              return c.postal_code === trimmed;
+            }
+
+            // Otherwise fuzzy match against multiple fields
+            const searchableText = `
+              ${c.display_name || ''}
+              ${c.formatted_address || ''}
+              ${c.city || ''}
+              ${c.state_code || ''}
+              ${Array.isArray(c.types) ? c.types.join(' ') : ''}
+              ${c.primary_type || ''}
+            `
+              .toLowerCase()
+              .replace(/\s+/g, ' ');
+
+            return searchableText.includes(lowered);
+          });
+        } catch (e) {
+          console.error(
+            'Fallback broad fetch (text search client-side) failed',
+            e
+          );
+        }
+      }
+
+      //
+      // 3. If we know the user's coords, sort results by nearest first
+      //
       if (
         hasLatLng &&
         loadedClinics.length > 0 &&
@@ -85,7 +156,10 @@ function ClinicsContent() {
             ...c,
             distance: calculateDistance(
               { lat: userLat, lng: userLng },
-              { lat: c.location.lat, lng: c.location.lng }
+              {
+                lat: c.location?.lat ?? 0,
+                lng: c.location?.lng ?? 0,
+              }
             ),
           }))
           .sort((a, b) => {
@@ -95,6 +169,9 @@ function ClinicsContent() {
           });
       }
 
+      //
+      // 4. Commit to state
+      //
       setClinics(loadedClinics);
       setFilteredClinics(loadedClinics);
     } catch (error) {
@@ -103,6 +180,7 @@ function ClinicsContent() {
       setLoading(false);
     }
   };
+
 
   // Local text search (SearchBar → onSearch)
   const handleSearch = (query: string) => {
