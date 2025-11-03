@@ -467,7 +467,7 @@ export default function Home() {
               <ul className="space-y-2 text-gray-400 text-xs sm:text-sm">
                 <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
                 <li><a href="#" className="hover:text-white">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-white">Contact Us</a></li>
+                <li><a href="https://dermaclinicnearme.com/advertise#contact" className="hover:text-white">Contact Us</a></li>
               </ul>
             </div>
             <div>
