@@ -11,9 +11,13 @@ import dynamic from 'next/dynamic';
 // It's a client boundary, and Next will handle that.
 import { CompareProvider } from '@/contexts/CompareContext';
 
-// Lazy-load the floating compare bar.
+// Lazy-load the floating compare bar, CLIENT ONLY (no SSR).
 const CompareFloatingBar = dynamic(
-  () => import('@/components/CompareFloatingBar')
+  () => import('@/components/CompareFloatingBar'),
+  {
+    ssr: false,
+    loading: () => null, // don't render anything while it hydrates
+  }
 );
 
 const inter = Inter({ subsets: ['latin'] });
@@ -61,12 +65,12 @@ export const metadata: Metadata = {
     // google: 'your-google-verification-code',
   },
 
-  // 👇👇 THIS IS THE NEW PART that wires up your icons & manifest
+  // ✅ favicon + manifest wiring
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
       { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon.ico' }, // classic fallback
+      { url: '/favicon.ico' },
     ],
     apple: [
       {
@@ -83,7 +87,6 @@ export const metadata: Metadata = {
     ],
   },
 
-  // This becomes <meta name="theme-color" ...> on modern browsers
   themeColor: '#2563eb',
 };
 
@@ -101,16 +104,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* These are fine to keep as explicit fallbacks.
-           Next.js will ALSO inject tags from metadata.icons/themeColor.
-           Having both won't break anything. */}
-
+        {/* Extra safety / fallback tags are fine to keep */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#2563eb" />
-
-        {/* If you use a strict CSP, be sure to allow googletagmanager.com */}
       </head>
 
       <body className={inter.className}>
@@ -118,12 +116,11 @@ export default function RootLayout({
         <CompareProvider>
           {children}
 
-          {/* Floating compare bar loads as a separate chunk now */}
+          {/* Floating compare bar now loads client-side only, not in initial HTML */}
           <CompareFloatingBar />
         </CompareProvider>
 
-        {/* Global Google Tag (GA4 + Ads)
-           Using lazyOnload so it's not render-blocking. */}
+        {/* Google Analytics / Ads (lazy loaded, so not blocking render) */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="lazyOnload"
@@ -148,4 +145,3 @@ export default function RootLayout({
     </html>
   );
 }
-
