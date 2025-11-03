@@ -7,11 +7,21 @@ import Logo from '@/components/Logo'; // keep the logo in the header
 const SearchBarClient = dynamic(
   () => import('@/components/SearchBarClientWrapper'),
   {
+    ssr: false,
     loading: () => (
-      <div className="animate-pulse rounded-lg border border-gray-200 bg-white shadow-sm p-4 h-[64px]" />
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm p-4">
+        {/* Force the same layout footprint as the hydrated bar */}
+        <div className="min-h-[120px] sm:min-h-[64px] flex flex-col sm:flex-row gap-2 sm:gap-3">
+          {/* fake input row */}
+          <div className="h-[56px] w-full rounded-md border border-gray-200 bg-gray-100 animate-pulse" />
+          {/* fake buttons row (or side-by-side on desktop) */}
+          <div className="h-[56px] w-full sm:w-[200px] rounded-md border border-gray-200 bg-gray-100 animate-pulse" />
+        </div>
+      </div>
     ),
   }
 );
+
 
 
 // 2. Stats section (below the hero)
