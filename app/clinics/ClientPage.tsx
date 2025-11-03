@@ -324,6 +324,27 @@ function ClinicsContent() {
   };
 
   // Load clinics whenever location/search context changes
+  // Sync URL query param to filters state when URL changes
+  useEffect(() => {
+    const qRaw = (searchQuery || '').trim();
+    if (qRaw && qRaw.toLowerCase() !== 'all') {
+      // URL has a query, sync it to filters
+      const includesOpenNow = /\bopen\s*now\b/i.test(qRaw);
+      setFilters(prev => ({
+        ...prev,
+        query: qRaw,
+        open_now: includesOpenNow ? true : prev.open_now,
+      }));
+    } else if (!qRaw || qRaw.toLowerCase() === 'all') {
+      // No query or "All" was selected, clear query from filters
+      setFilters(prev => {
+        const { query, ...rest } = prev;
+        return rest as FilterOptions;
+      });
+    }
+  }, [searchQuery]);
+
+  // Load clinics whenever location/search context changes
   useEffect(() => {
     loadClinics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
