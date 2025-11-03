@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
 import ClinicCard from '@/components/ClinicCard';
 import FreeMapView from '@/components/FreeMapView';
@@ -14,6 +14,7 @@ import Link from 'next/link';
 
 function ClinicsContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // URL inputs we support
   const stateParam = searchParams.get('state');
@@ -45,14 +46,14 @@ function ClinicsContent() {
     mohs: ['mohs', 'mohs surgery', 'mohs micrographic', 'micrographic', 'mohs surgeon'],
     botox: ['botox', 'botulinum toxin', 'dysport', 'xeomin', 'jeuveau'],
     filler: ['filler', 'fillers', 'dermal filler', 'dermal fillers', 'hyaluronic acid', 'restylane', 'juvederm', 'sculptra', 'radiesse'],
-    hydrafacial: ['hydrafacial', 'hydra facial', 'hydrofacial', 'hydro facial', 'hydrafacial®'], // kept if you use it elsewhere
+    hydrafacial: ['hydrafacial', 'hydra facial', 'hydrofacial', 'hydro facial', 'hydrafacial®'],
     telehealth: ['telehealth', 'virtual visit', 'online consultation', 'video visit'],
 
     // Additional single-word topics
     alopecia: ['alopecia', 'androgenetic alopecia', 'mpb', 'fpb', 'pattern hair loss'],
     warts: ['warts', 'verruca', 'verruca vulgaris'],
 
-    // Canonical tokens for phrases (we’ll add the phrases themselves too)
+    // Canonical tokens for phrases
     skin_cancer: [
       'skin cancer', 'melanoma', 'non-melanoma', 'basal cell carcinoma', 'bcc',
       'squamous cell carcinoma', 'scc', 'actinic keratosis', 'ak',
@@ -244,12 +245,16 @@ function ClinicsContent() {
       const qRaw = (searchQuery || '').trim();
       const q = qRaw.toLowerCase();
       const wantsOpenNow = /\bopen\s*now\b/.test(q); // treat "open now" as a real filter
+      const isAll = /^all$/.test(q);                 // special: 'All' forces nationwide
 
       // --- 1) Build API URL WITHOUT ?q= (client handles text/services search) ---
+      // If "All", force nationwide: do NOT include state/city/lat/lng.
       let url = `/api/clinics?per_page=5000`;
-      if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
-      if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
-      if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
+      if (!isAll) {
+        if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
+        if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
+        if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
+      }
 
       const res = await fetch(url);
       const data = await res.json();
@@ -261,7 +266,7 @@ function ClinicsContent() {
       let loadedClinics: Clinic[] = data.clinics || [];
 
       // --- 2) Fallback: if radius search returned nothing, fetch a broader list (no coords) ---
-      if (hasLatLng && loadedClinics.length === 0) {
+      if (!isAll && hasLatLng && loadedClinics.length === 0) {
         try {
           let fbUrl = `/api/clinics?per_page=5000`;
           if (stateParam) fbUrl += `&state=${encodeURIComponent(stateParam)}`;
@@ -274,9 +279,9 @@ function ClinicsContent() {
         }
       }
 
-      // --- 3) Query filtering (typo-tolerant + synonyms across many fields) ---
+      // --- 3) Query filtering (typo-tolerant + synonyms) ---
       let effectiveClinics: Clinic[] = loadedClinics;
-      if (qRaw && !wantsOpenNow) {
+      if (qRaw && !wantsOpenNow && !isAll) {
         effectiveClinics = filterByQuery(loadedClinics, qRaw);
         // Never return 0 just because of a typo — degrade to the full set
         if (effectiveClinics.length === 0) {
@@ -286,6 +291,7 @@ function ClinicsContent() {
 
       // --- 4) Distance ordering on the client when coords are known ---
       if (
+        !isAll &&
         hasLatLng &&
         effectiveClinics.length > 0 &&
         !Number.isNaN(userLat) &&
@@ -323,11 +329,19 @@ function ClinicsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateParam, cityParam, searchQuery, latParam, lngParam]);
 
-  // Local text search (SearchBar → onSearch) — feed into filters so it composes
+  // Local text search (SearchBar → onSearch) — "All" resets nationwide list
   const handleSearch = (query: string) => {
     const trimmed = (query || '').trim();
-    const includesOpenNow = /\bopen\s*now\b/i.test(trimmed);
 
+    // If user clicks/types "All": clear filters, clear selection, and strip URL params
+    if (trimmed === '' || /^all$/i.test(trimmed)) {
+      setSelectedClinic(null);
+      setFilters({} as FilterOptions);
+      router.push('/clinics'); // removes state/city/q/lat/lng → fetch all 5000
+      return;
+    }
+
+    const includesOpenNow = /\bopen\s*now\b/i.test(trimmed);
     setFilters((prev) =>
       ({
         ...prev,
@@ -363,7 +377,10 @@ function ClinicsContent() {
     let next = [...clinics];
 
     // 0) Query filtering first so it composes with the rest
-    const queryStr = ((filters as any).query ?? '').toString().trim();
+    const queryStrRaw = ((filters as any).query ?? '').toString().trim();
+    const isAllQuery = /^all$/i.test(queryStrRaw);
+    const queryStr = isAllQuery ? '' : queryStrRaw;
+
     if (queryStr) {
       const scored = filterByQuery(next, queryStr);
       next = scored.length > 0 ? scored : next; // never 0 due to typos
@@ -398,9 +415,9 @@ function ClinicsContent() {
       );
     }
 
-    if (filters.states && filters.states.length > 0) {
+    if (filters.states && filters.length > 0) {
       next = next.filter(
-        (c) => c.state_code && filters.states?.includes(c.state_code)
+        (c) => c.state_code && (filters.states as string[])?.includes(c.state_code)
       );
     }
 
