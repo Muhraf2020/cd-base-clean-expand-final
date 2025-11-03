@@ -7,19 +7,18 @@ import Logo from '@/components/Logo'; // keep the logo in the header
 const SearchBarClient = dynamic(
   () => import('@/components/SearchBarClientWrapper'),
   {
-    ssr: false,
     loading: () => (
       <div className="animate-pulse rounded-lg border border-gray-200 bg-white shadow-sm p-4 h-[64px]" />
     ),
   }
 );
 
+
 // 2. Stats section (below the hero)
 // We'll defer SSR and show a simple skeleton block first.
 const StatsSection = dynamic(
   () => import('@/components/StatsSection'),
   {
-    ssr: false,
     loading: () => (
       <section className="py-8 sm:py-10 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -30,27 +29,28 @@ const StatsSection = dynamic(
   }
 );
 
+
 // 3. State grid (the list of states in Browse by State)
 // We'll defer SSR and show a placeholder where the grid would go.
 const StateGridClient = dynamic(
   () => import('@/components/StateGrid'),
   {
-    ssr: false,
     loading: () => (
       <div className="animate-pulse h-32 bg-gray-100 rounded-lg" />
     ),
   }
 );
 
+
 // 4. Comparison feature promo box
 // This is not critical for first paint, so we load it client-side only.
 const ComparisonFeatureBox = dynamic(
   () => import('@/components/ComparisonFeatureBox'),
   {
-    ssr: false,
     loading: () => null,
   }
 );
+
 
 export default function Home() {
   return (
