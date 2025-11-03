@@ -7,7 +7,7 @@ import ClinicCard from '@/components/ClinicCard';
 import FreeMapView from '@/components/FreeMapView';
 import FilterPanel from '@/components/FilterPanel';
 import MobileFilterButton from '@/components/MobileFilterButton';
-import Logo from '@/components/Logo'; // ⬅ NEW import
+import Logo from '@/components/Logo';
 import { Clinic, FilterOptions } from '@/lib/dataTypes';
 import { calculateDistance } from '@/lib/utils';
 import Link from 'next/link';
@@ -30,106 +30,292 @@ function ClinicsContent() {
   const [filters, setFilters] = useState<FilterOptions>({});
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
-  // Fetch clinics from API, apply intelligent fallbacks so that
-  // category buttons ("cosmetic", "pediatric", etc.) still work.
-  const loadClinics = async () => {
-  try {
-    setLoading(true);
+  // ----------------------------
+  // Search helpers (synonyms + typos + phrases)
+  // ----------------------------
+  const SEARCH_SYNONYMS: Record<string, string[]> = {
+    // Single-word categories
+    acne: ['acne', 'acne scars', 'acne scar', 'acne vulgaris', 'comedones', 'pimples'],
+    cosmetic: ['cosmetic', 'aesthetic', 'aesthetics', 'cosmetic dermatology', 'cosmetic clinic'],
+    pediatric: ['pediatric', 'paediatric', 'kids', 'children', 'child', 'peds', 'pediatric dermatology'],
+    eczema: ['eczema', 'atopic dermatitis', 'dermatitis'],
+    psoriasis: ['psoriasis', 'psoriatic'],
+    rosacea: ['rosacea', 'facial redness', 'flushing', 'telangiectasia', 'erythematotelangiectatic', 'papulopustular'],
+    laser: ['laser', 'laser therapy', 'laser hair removal', 'lhr', 'ipl', 'intense pulsed light', 'resurfacing', 'fraxel', 'co2 laser', 'nd:yag', 'vascular laser'],
+    mohs: ['mohs', 'mohs surgery', 'mohs micrographic', 'micrographic', 'mohs surgeon'],
+    botox: ['botox', 'botulinum toxin', 'dysport', 'xeomin', 'jeuveau'],
+    filler: ['filler', 'fillers', 'dermal filler', 'dermal fillers', 'hyaluronic acid', 'restylane', 'juvederm', 'sculptra', 'radiesse'],
+    hydrafacial: ['hydrafacial', 'hydra facial', 'hydrofacial', 'hydro facial', 'hydrafacial®'], // kept if you use it elsewhere
+    telehealth: ['telehealth', 'virtual visit', 'online consultation', 'video visit'],
 
-    // --- URL inputs ---
-    const qRaw = (searchQuery || '').trim();
-    const q = qRaw.toLowerCase();
-    const wantsOpenNow = /\bopen\s*now\b/.test(q); // treat "open now" as a real filter
+    // Additional single-word topics
+    alopecia: ['alopecia', 'androgenetic alopecia', 'mpb', 'fpb', 'pattern hair loss'],
+    warts: ['warts', 'verruca', 'verruca vulgaris'],
 
-    // --- 1) Build API URL WITHOUT ?q= (let client handle text/services search) ---
-    let url = `/api/clinics?per_page=5000`;
-    if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
-    if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
-    if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
+    // Canonical tokens for phrases (we’ll add the phrases themselves too)
+    skin_cancer: [
+      'skin cancer', 'melanoma', 'non-melanoma', 'basal cell carcinoma', 'bcc',
+      'squamous cell carcinoma', 'scc', 'actinic keratosis', 'ak',
+      'skin cancer screening', 'mole check', 'mole mapping', 'dermoscopy', 'dermatoscopy'
+    ],
+    hair_loss: [
+      'hair loss', 'alopecia', 'androgenetic alopecia', 'male pattern baldness',
+      'female pattern hair loss', 'prp hair', 'prp for hair', 'minoxidil', 'finasteride', 'telogen effluvium'
+    ],
+    wart_removal: [
+      'wart removal', 'warts', 'verruca', 'verruca vulgaris', 'cryotherapy', 'liquid nitrogen', 'salicylic acid'
+    ],
+    laser_treatment: [
+      'laser treatment', 'laser therapy', 'laser', 'laser hair removal', 'lhr', 'ipl', 'intense pulsed light', 'resurfacing', 'fraxel', 'co2 laser', 'nd:yag'
+    ],
+    botox_fillers: [
+      'botox', 'botulinum toxin', 'fillers', 'dermal filler', 'dermal fillers', 'dysport', 'xeomin', 'jeuveau', 'restylane', 'juvederm', 'sculptra', 'radiesse'
+    ],
+  };
 
-    const res = await fetch(url);
-    const data = await res.json();
+  // Phrase triggers -> canonical tokens to inject
+  const PHRASE_SYNONYMS: Record<string, string[]> = {
+    'skin cancer': ['skin cancer', ...SEARCH_SYNONYMS.skin_cancer],
+    'mohs surgery': ['mohs', ...SEARCH_SYNONYMS.mohs],
+    'laser treatment': [...SEARCH_SYNONYMS.laser_treatment],
+    'hair loss': [...SEARCH_SYNONYMS.hair_loss],
+    'wart removal': [...SEARCH_SYNONYMS.wart_removal],
+    'botox fillers': [...SEARCH_SYNONYMS.botox_fillers],
+    'botox and fillers': [...SEARCH_SYNONYMS.botox_fillers],
+  };
 
-    const hasLatLng = !!(latParam && lngParam);
-    const userLat = hasLatLng ? parseFloat(latParam as string) : NaN;
-    const userLng = hasLatLng ? parseFloat(lngParam as string) : NaN;
+  const MISSPELLINGS: Record<string, string> = {
+    eczwma: 'eczema',
+    eczmea: 'eczema',
+    psorasis: 'psoriasis',
+    psoraisis: 'psoriasis',
+    rosacia: 'rosacea',
+    rozacea: 'rosacea',
+    roscaea: 'rosacea',
+    hydraficial: 'hydrafacial',
+    hydrofacial: 'hydrafacial',
+    lasar: 'laser',
+    alopcia: 'alopecia',
+    alopeica: 'alopecia',
+    moh: 'mohs',
+    'mohs surgry': 'mohs surgery',
+    'mohs suregery': 'mohs surgery',
+    botax: 'botox',
+    filllers: 'fillers',
+    wrat: 'wart',
+  };
 
-    let loadedClinics: Clinic[] = data.clinics || [];
+  const normalize = (s: string) =>
+    s
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
 
-    // --- 2) Fallback: if radius search returned nothing, fetch a broader list (no coords) ---
-    if (hasLatLng && loadedClinics.length === 0) {
-      try {
-        let fbUrl = `/api/clinics?per_page=5000`;
-        if (stateParam) fbUrl += `&state=${encodeURIComponent(stateParam)}`;
-        if (cityParam) fbUrl += `&city=${encodeURIComponent(cityParam)}`;
-        const broad = await fetch(fbUrl); // NOTE: no lat/lng and no q
-        const broadData = await broad.json();
-        loadedClinics = broadData.clinics || [];
-      } catch (e) {
-        console.error('Fallback broad fetch failed', e);
+  const correct = (term: string) => MISSPELLINGS[term] || term;
+
+  const expandTerms = (qRaw: string): string[] => {
+    // Normalize + remove "open now" (handled by real filter), and soften separators for phrases
+    const base = normalize(qRaw);
+    const cleaned = base
+      .replace(/\bopen\s*now\b/g, '')
+      .replace(/[\/&]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const out = new Set<string>();
+    if (!cleaned) return [];
+
+    // 1) Add phrase-based synonyms if phrase is present anywhere
+    for (const phrase of Object.keys(PHRASE_SYNONYMS)) {
+      if (cleaned.includes(phrase)) {
+        PHRASE_SYNONYMS[phrase].forEach((syn) => out.add(normalize(syn)));
       }
     }
 
-    // --- 3) If a q= is present, filter LOCALLY (name/address/types/primary_type/etc.)
-    //        Do NOT apply text filtering for the "open now" special — that is handled via filters.
-    let effectiveClinics: Clinic[] = loadedClinics;
-
-    if (qRaw && !wantsOpenNow) {
-      const isZip = /^\d{5}$/.test(qRaw);
-      effectiveClinics = loadedClinics.filter((c) => {
-        if (isZip) return c.postal_code === qRaw;
-
-        const searchable = [
-          c.display_name || '',
-          c.formatted_address || '',
-          c.city || '',
-          c.state_code || '',
-          (c.types || []).join(' '),
-          c.primary_type || '',
-        ]
-          .join(' ')
-          .toLowerCase()
-          .replace(/\s+/g, ' ');
-
-        return searchable.includes(q);
-      });
+    // 2) Tokenize remaining words and expand using single-token synonyms
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    for (const p of parts) {
+      const t = correct(p);
+      out.add(t);
+      const syns = SEARCH_SYNONYMS[t];
+      if (syns) {
+        syns.forEach((syn) => out.add(normalize(syn)));
+      }
     }
 
-    // --- 4) Distance ordering on the client when coords are known ---
-    if (
-      hasLatLng &&
-      effectiveClinics.length > 0 &&
-      !Number.isNaN(userLat) &&
-      !Number.isNaN(userLng)
-    ) {
-      effectiveClinics = effectiveClinics
-        .map((c: Clinic & { distance?: number }) => ({
-          ...c,
-          distance: calculateDistance(
-            { lat: userLat, lng: userLng },
-            { lat: c.location?.lat ?? 0, lng: c.location?.lng ?? 0 }
-          ),
-        }))
-        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)) as Clinic[];
+    return Array.from(out);
+  };
+
+  const tokenizeClinic = (c: Clinic) => {
+    const fields: string[] = [
+      c.display_name,
+      c.formatted_address,
+      c.city,
+      c.state_code,
+      c.primary_type,
+      ...(Array.isArray(c.types) ? c.types : []),
+      ...(Array.isArray((c as any).services_offered) ? (c as any).services_offered : []),
+      ...(Array.isArray((c as any).specialties) ? (c as any).specialties : []),
+      ...(Array.isArray((c as any).conditions_treated) ? (c as any).conditions_treated : []),
+      ...(Array.isArray((c as any).keywords) ? (c as any).keywords : []),
+      (c as any).description,
+    ].filter(Boolean) as string[];
+
+    const text = normalize(fields.join(' ')).replace(/\s+/g, ' ');
+    const words = new Set(text.split(/\s+/).filter(Boolean));
+    return { text, words };
+  };
+
+  // Tiny Levenshtein with early-exit threshold
+  const editDistance = (a: string, b: string, max = 2) => {
+    const la = a.length, lb = b.length;
+    if (Math.abs(la - lb) > max) return max + 1;
+    const dp = new Array(lb + 1);
+    for (let j = 0; j <= lb; j++) dp[j] = j;
+    for (let i = 1; i <= la; i++) {
+      let prev = dp[0];
+      dp[0] = i;
+      let minRow = dp[0];
+      for (let j = 1; j <= lb; j++) {
+        const tmp = dp[j];
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + cost);
+        prev = tmp;
+        if (dp[j] < minRow) minRow = dp[j];
+      }
+      if (minRow > max) return max + 1;
     }
+    return dp[lb];
+  };
 
-    // --- 5) Seed state:
-    // For plain text queries: set dataset to the locally-filtered subset.
-    // For "open now": keep full dataset and flip the filter so applyFilters() will narrow it.
-    setClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
-    setFilteredClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+  // Score a clinic against a query (exact > taxonomy > fuzzy)
+  const scoreClinic = (c: Clinic, qRaw: string) => {
+    const terms = expandTerms(qRaw);
+    if (terms.length === 0) return 0;
+    const { text, words } = tokenizeClinic(c);
+    let score = 0;
 
-    if (wantsOpenNow) {
-      // trigger sidebar logic without user interaction
-      setFilters((prev) => ({ ...prev, open_now: true }));
+    for (const t of terms) {
+      if (!t) continue;
+
+      // exact/phrase match
+      if (text.includes(t)) {
+        const dn = (c.display_name || '').toLowerCase();
+        const pt = (c.primary_type || '').toLowerCase();
+        const typesBlob = Array.isArray(c.types) ? c.types.join(' ').toLowerCase() : '';
+
+        if (dn.includes(t)) score += 3; // name hit is strongest
+        else if (typesBlob.includes(t) || pt.includes(t)) score += 2; // taxonomy hit
+        else score += 1; // somewhere else
+        continue;
+      }
+
+      // fuzzy: allow small typos on long tokens
+      const maxEd = t.length >= 7 ? 2 : 1;
+      for (const w of words) {
+        if (Math.abs(w.length - t.length) > maxEd) continue;
+        if (editDistance(w, t, maxEd) <= maxEd) {
+          score += 1;
+          break;
+        }
+      }
     }
-  } catch (error) {
-    console.error('Error loading clinics:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+    return score;
+  };
 
+  const filterByQuery = (arr: Clinic[], qRaw: string) => {
+    const scored = arr
+      .map((c) => ({ c, s: scoreClinic(c, qRaw) }))
+      .filter(({ s }) => s > 0)
+      .sort((a, b) => b.s - a.s)
+      .map(({ c }) => c);
+    return scored;
+  };
+
+  // ----------------------------------------------------
+  // Fetch clinics (no server-side ?q=) + local filtering
+  // ----------------------------------------------------
+  const loadClinics = async () => {
+    try {
+      setLoading(true);
+
+      // --- URL inputs ---
+      const qRaw = (searchQuery || '').trim();
+      const q = qRaw.toLowerCase();
+      const wantsOpenNow = /\bopen\s*now\b/.test(q); // treat "open now" as a real filter
+
+      // --- 1) Build API URL WITHOUT ?q= (client handles text/services search) ---
+      let url = `/api/clinics?per_page=5000`;
+      if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
+      if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
+      if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      const hasLatLng = !!(latParam && lngParam);
+      const userLat = hasLatLng ? parseFloat(latParam as string) : NaN;
+      const userLng = hasLatLng ? parseFloat(lngParam as string) : NaN;
+
+      let loadedClinics: Clinic[] = data.clinics || [];
+
+      // --- 2) Fallback: if radius search returned nothing, fetch a broader list (no coords) ---
+      if (hasLatLng && loadedClinics.length === 0) {
+        try {
+          let fbUrl = `/api/clinics?per_page=5000`;
+          if (stateParam) fbUrl += `&state=${encodeURIComponent(stateParam)}`;
+          if (cityParam) fbUrl += `&city=${encodeURIComponent(cityParam)}`;
+          const broad = await fetch(fbUrl); // NOTE: no lat/lng and no q
+          const broadData = await broad.json();
+          loadedClinics = broadData.clinics || [];
+        } catch (e) {
+          console.error('Fallback broad fetch failed', e);
+        }
+      }
+
+      // --- 3) Query filtering (typo-tolerant + synonyms across many fields) ---
+      let effectiveClinics: Clinic[] = loadedClinics;
+      if (qRaw && !wantsOpenNow) {
+        effectiveClinics = filterByQuery(loadedClinics, qRaw);
+        // Never return 0 just because of a typo — degrade to the full set
+        if (effectiveClinics.length === 0) {
+          effectiveClinics = loadedClinics;
+        }
+      }
+
+      // --- 4) Distance ordering on the client when coords are known ---
+      if (
+        hasLatLng &&
+        effectiveClinics.length > 0 &&
+        !Number.isNaN(userLat) &&
+        !Number.isNaN(userLng)
+      ) {
+        effectiveClinics = effectiveClinics
+          .map((c: Clinic & { distance?: number }) => ({
+            ...c,
+            distance: calculateDistance(
+              { lat: userLat, lng: userLng },
+              { lat: c.location?.lat ?? 0, lng: c.location?.lng ?? 0 }
+            ),
+          }))
+          .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)) as Clinic[];
+      }
+
+      // --- 5) Commit
+      setClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+      setFilteredClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+
+      if (wantsOpenNow) {
+        // trigger sidebar logic without user interaction
+        setFilters((prev) => ({ ...prev, open_now: true }));
+      }
+    } catch (error) {
+      console.error('Error loading clinics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load clinics whenever location/search context changes
   useEffect(() => {
@@ -137,37 +323,18 @@ function ClinicsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateParam, cityParam, searchQuery, latParam, lngParam]);
 
-  // Local text search (SearchBar → onSearch)
+  // Local text search (SearchBar → onSearch) — feed into filters so it composes
   const handleSearch = (query: string) => {
-    if (!query || query.trim() === '') {
-      setFilteredClinics(clinics);
-      return;
-    }
+    const trimmed = (query || '').trim();
+    const includesOpenNow = /\bopen\s*now\b/i.test(trimmed);
 
-    const trimmedQuery = query.trim();
-    const lowerQuery = trimmedQuery.toLowerCase();
-    const isZipCode = /^\d{5}$/.test(trimmedQuery);
-
-    const filtered = clinics.filter((clinic) => {
-      if (isZipCode) {
-        return clinic.postal_code === trimmedQuery;
-      }
-
-      const searchableText = `
-        ${clinic.display_name || ''} 
-        ${clinic.formatted_address || ''} 
-        ${clinic.city || ''} 
-        ${clinic.state_code || ''} 
-        ${clinic.types?.join(' ') || ''} 
-        ${clinic.primary_type || ''}
-      `
-        .toLowerCase()
-        .replace(/\s+/g, ' ');
-
-      return searchableText.includes(lowerQuery);
-    });
-
-    setFilteredClinics(filtered);
+    setFilters((prev) =>
+      ({
+        ...prev,
+        query: trimmed || undefined,
+        open_now: includesOpenNow ? true : prev.open_now,
+      } as FilterOptions)
+    );
   };
 
   // Local "Near Me" sort (SearchBar → onLocationSearch).
@@ -188,13 +355,21 @@ function ClinicsContent() {
       (a, b) => (a.distance ?? 0) - (b.distance ?? 0)
     );
 
-    setFilteredClinics(sorted);
+    setFilteredClinics(sorted as Clinic[]);
   };
 
-  // Apply sidebar filters (rating, amenities, etc.)
+  // Apply sidebar filters (rating, amenities, etc.) + query engine
   const applyFilters = () => {
     let next = [...clinics];
 
+    // 0) Query filtering first so it composes with the rest
+    const queryStr = ((filters as any).query ?? '').toString().trim();
+    if (queryStr) {
+      const scored = filterByQuery(next, queryStr);
+      next = scored.length > 0 ? scored : next; // never 0 due to typos
+    }
+
+    // 1) Standard filters
     if (filters.rating_min) {
       next = next.filter((c) => (c.rating || 0) >= filters.rating_min!);
     }
@@ -209,31 +384,27 @@ function ClinicsContent() {
 
     if (filters.wheelchair_accessible) {
       next = next.filter(
-        (c) =>
-          c.accessibility_options?.wheelchair_accessible_entrance === true
+        (c) => c.accessibility_options?.wheelchair_accessible_entrance === true
       );
     }
 
     if (filters.free_parking) {
-      next = next.filter(
-        (c) => c.parking_options?.free_parking_lot === true
-      );
+      next = next.filter((c) => c.parking_options?.free_parking_lot === true);
     }
 
     if (filters.open_now) {
       next = next.filter(
-        (c) =>
-          c.current_open_now === true ||
-          c.opening_hours?.open_now === true
+        (c) => c.current_open_now === true || c.opening_hours?.open_now === true
       );
     }
 
     if (filters.states && filters.states.length > 0) {
-      next = next.filter((c) => {
-        return c.state_code && filters.states?.includes(c.state_code);
-      });
+      next = next.filter(
+        (c) => c.state_code && filters.states?.includes(c.state_code)
+      );
     }
 
+    // 2) Sorting (rating/reviews/name). Distance sort is handled at load time.
     if (filters.sort_by) {
       next.sort((a, b) => {
         let aVal: string | number = 0;
@@ -256,13 +427,22 @@ function ClinicsContent() {
             return 0;
         }
 
-        if (filters.sort_order === 'asc') {
-          return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-        } else {
-          return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-        }
+        return filters.sort_order === 'asc'
+          ? aVal < bVal
+            ? -1
+            : aVal > bVal
+            ? 1
+            : 0
+          : aVal > bVal
+          ? -1
+          : aVal < bVal
+          ? 1
+          : 0;
       });
     }
+
+    // 3) Absolute fallback: never show an empty screen
+    if (next.length === 0) next = [...clinics];
 
     setFilteredClinics(next);
   };
@@ -339,10 +519,7 @@ function ClinicsContent() {
       {/* Sticky Search Bar */}
       <div className="sticky top-0 z-40 bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
-          <SearchBar
-            onSearch={handleSearch}
-            onLocationSearch={handleLocationSearch}
-          />
+          <SearchBar onSearch={handleSearch} onLocationSearch={handleLocationSearch} />
         </div>
       </div>
 
@@ -366,9 +543,7 @@ function ClinicsContent() {
             {/* Results Header */}
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
-                {loading
-                  ? 'Loading...'
-                  : `${filteredClinics.length} clinics shown`}
+                {loading ? 'Loading...' : `${filteredClinics.length} clinics shown`}
               </h2>
             </div>
 
@@ -378,10 +553,7 @@ function ClinicsContent() {
                 {loading ? (
                   // skeletons
                   Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-white rounded-lg shadow-md p-6 animate-pulse"
-                    >
+                    <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
                       <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
                       <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
                       <div className="h-4 bg-gray-200 rounded w-2/3"></div>
@@ -390,15 +562,13 @@ function ClinicsContent() {
                 ) : filteredClinics.length === 0 ? (
                   // empty state with recovery CTA
                   <div className="col-span-full text-center py-12 space-y-4">
-                    <p className="text-gray-500 text-lg">
-                      No clinics found with those filters.
-                    </p>
+                    <p className="text-gray-500 text-lg">No clinics found with those filters.</p>
 
                     <button
                       className="inline-block px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                       onClick={() => {
                         // 1. clear all local filters
-                        setFilters({});
+                        setFilters({} as FilterOptions);
 
                         // 2. force a broad fetch again:
                         //    navigate to /clinics with no query params at all
