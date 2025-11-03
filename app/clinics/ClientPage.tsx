@@ -237,6 +237,7 @@ function ClinicsContent() {
   // ----------------------------------------------------
   // ✅ FIX: Fetch clinics WITHOUT filtering
   // Store FULL dataset in clinics state
+  // IMPROVED: Better handling for queries without location
   // ----------------------------------------------------
   const loadClinics = async () => {
     try {
@@ -246,15 +247,24 @@ function ClinicsContent() {
       const qRaw = (searchQuery || '').trim();
       const q = qRaw.toLowerCase();
       const isAll = /^all$/.test(q); // special: 'All' forces nationwide
+      const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
+      const hasQueryWithoutLocation = qRaw && !isAll && !hasLocation;
 
       // --- 1) Build API URL WITHOUT ?q= (client handles text/services search) ---
-      // If "All", force nationwide: do NOT include state/city/lat/lng.
+      // ✅ IMPROVED: Explicitly fetch nationwide when there's a query but no location
+      // This ensures users searching from home page get results
+      const fetchNationwide = isAll || hasQueryWithoutLocation;
+      
       let url = `/api/clinics?per_page=5000`;
-      if (!isAll) {
+      
+      // Only add location filters if we have location AND not forcing nationwide
+      if (!fetchNationwide && hasLocation) {
         if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
         if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
         if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
       }
+
+      console.log('Fetching clinics:', { url, fetchNationwide, hasLocation, hasQueryWithoutLocation, qRaw });
 
       const res = await fetch(url);
       const data = await res.json();
@@ -266,8 +276,9 @@ function ClinicsContent() {
       let loadedClinics: Clinic[] = data.clinics || [];
 
       // --- 2) Fallback: if radius search returned nothing, fetch a broader list (no coords) ---
-      if (!isAll && hasLatLng && loadedClinics.length === 0) {
+      if (!fetchNationwide && hasLatLng && loadedClinics.length === 0) {
         try {
+          console.log('Fallback: radius search returned nothing, trying broader fetch');
           let fbUrl = `/api/clinics?per_page=5000`;
           if (stateParam) fbUrl += `&state=${encodeURIComponent(stateParam)}`;
           if (cityParam) fbUrl += `&city=${encodeURIComponent(cityParam)}`;
@@ -281,7 +292,7 @@ function ClinicsContent() {
 
       // --- 3) ✅ Distance ordering on the client when coords are known ---
       if (
-        !isAll &&
+        !fetchNationwide &&
         hasLatLng &&
         loadedClinics.length > 0 &&
         !Number.isNaN(userLat) &&
@@ -300,11 +311,13 @@ function ClinicsContent() {
 
       // --- 4) ✅ CRITICAL FIX: Always store FULL dataset ---
       // Do NOT filter by query here - let applyFilters() handle ALL filtering
+      console.log('Loaded clinics:', loadedClinics.length);
       setClinics(loadedClinics);
       // Don't set filteredClinics here - applyFilters() will do it
 
     } catch (error) {
       console.error('Error loading clinics:', error);
+      setClinics([]); // Ensure we set empty array on error
     } finally {
       setLoading(false);
     }
@@ -314,9 +327,9 @@ function ClinicsContent() {
   useEffect(() => {
     loadClinics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateParam, cityParam, latParam, lngParam]);
+  }, [stateParam, cityParam, latParam, lngParam, searchQuery]); // ✅ ADDED searchQuery to deps
 
-  // ✅ NEW: Sync URL query parameter to filters state
+  // ✅ Sync URL query parameter to filters state
   useEffect(() => {
     const qRaw = (searchQuery || '').trim();
     if (qRaw) {
@@ -348,13 +361,16 @@ function ClinicsContent() {
     }
 
     const includesOpenNow = /\bopen\s*now\b/i.test(trimmed);
-    setFilters((prev) =>
-      ({
-        ...prev,
-        query: trimmed || undefined,
-        open_now: includesOpenNow ? true : prev.open_now,
-      } as FilterOptions)
-    );
+    
+    // ✅ Update URL with query parameter
+    const params = new URLSearchParams();
+    params.set('q', trimmed);
+    if (stateParam) params.set('state', stateParam);
+    if (cityParam) params.set('city', cityParam);
+    if (latParam) params.set('lat', latParam);
+    if (lngParam) params.set('lng', lngParam);
+    
+    router.push(`/clinics?${params.toString()}`);
   };
 
   // Local "Near Me" sort (SearchBar → onLocationSearch).
@@ -389,7 +405,7 @@ function ClinicsContent() {
 
     if (queryStr) {
       const scored = filterByQuery(next, queryStr);
-      next = scored.length > 0 ? scored : next; // never 0 due to typos
+      next = scored.length > 0 ? scored : next; // fallback to all if no matches
     }
 
     // 1) Standard filters
@@ -468,6 +484,13 @@ function ClinicsContent() {
     // 3) ✅ Absolute fallback: never show an empty screen
     if (next.length === 0) next = [...clinics];
 
+    console.log('Applied filters:', { 
+      queryStr, 
+      originalCount: clinics.length, 
+      filteredCount: next.length,
+      filters 
+    });
+
     setFilteredClinics(next);
   };
 
@@ -500,16 +523,22 @@ function ClinicsContent() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                {cityParam
-                  ? `${cityParam}, ${stateParam || ''} `
-                  : stateParam
-                  ? `${stateParam} `
-                  : ''}{' '}
+                {searchQuery ? (
+                  <>Search: {searchQuery}</>
+                ) : cityParam ? (
+                  `${cityParam}, ${stateParam || ''} `
+                ) : stateParam ? (
+                  `${stateParam} `
+                ) : (
+                  ''
+                )}{' '}
                 Dermatology Clinics
               </h1>
               <p className="text-sm text-gray-600 mt-1">
-                Find the best skin care specialists
-                {cityParam && ` in ${cityParam}`}
+                {searchQuery 
+                  ? `Showing results for "${searchQuery}"${cityParam ? ` in ${cityParam}` : ''}`
+                  : `Find the best skin care specialists${cityParam ? ` in ${cityParam}` : ''}`
+                }
               </p>
             </div>
 
@@ -596,7 +625,7 @@ function ClinicsContent() {
 
                         // 2. force a broad fetch again:
                         //    navigate to /clinics with no query params at all
-                        window.location.href = '/clinics';
+                        router.push('/clinics');
                       }}
                     >
                       Clear filters and show all clinics
