@@ -415,9 +415,10 @@ function ClinicsContent() {
       );
     }
 
-    if (filters.states && filters.length > 0) {
+    if (filters.states && filters.states.length > 0) {
+      const allowedStates = filters.states;
       next = next.filter(
-        (c) => c.state_code && (filters.states as string[])?.includes(c.state_code)
+        (c) => c.state_code && allowedStates.includes(c.state_code)
       );
     }
 
