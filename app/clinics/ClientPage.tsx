@@ -33,146 +33,103 @@ function ClinicsContent() {
   // Fetch clinics from API, apply intelligent fallbacks so that
   // category buttons ("cosmetic", "pediatric", etc.) still work.
   const loadClinics = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      //
-      // 1. First attempt: ask /api/clinics for exactly what the URL is requesting
-      //
-      const firstParams = new URLSearchParams();
-      firstParams.set('per_page', '5000');
+    // --- URL inputs ---
+    const qRaw = (searchQuery || '').trim();
+    const q = qRaw.toLowerCase();
+    const wantsOpenNow = /\bopen\s*now\b/.test(q); // treat "open now" as a real filter
 
-      if (stateParam) firstParams.set('state', stateParam);
-      if (cityParam) firstParams.set('city', cityParam);
-      if (searchQuery) firstParams.set('q', searchQuery);
+    // --- 1) Build API URL WITHOUT ?q= (let client handle text/services search) ---
+    let url = `/api/clinics?per_page=5000`;
+    if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
+    if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
+    if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
 
-      // include coords if present so backend can run its "near me" logic
-      if (latParam && lngParam) {
-        firstParams.set('lat', latParam);
-        firstParams.set('lng', lngParam);
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const hasLatLng = !!(latParam && lngParam);
+    const userLat = hasLatLng ? parseFloat(latParam as string) : NaN;
+    const userLng = hasLatLng ? parseFloat(lngParam as string) : NaN;
+
+    let loadedClinics: Clinic[] = data.clinics || [];
+
+    // --- 2) Fallback: if radius search returned nothing, fetch a broader list (no coords) ---
+    if (hasLatLng && loadedClinics.length === 0) {
+      try {
+        let fbUrl = `/api/clinics?per_page=5000`;
+        if (stateParam) fbUrl += `&state=${encodeURIComponent(stateParam)}`;
+        if (cityParam) fbUrl += `&city=${encodeURIComponent(cityParam)}`;
+        const broad = await fetch(fbUrl); // NOTE: no lat/lng and no q
+        const broadData = await broad.json();
+        loadedClinics = broadData.clinics || [];
+      } catch (e) {
+        console.error('Fallback broad fetch failed', e);
       }
-
-      const firstRes = await fetch(`/api/clinics?${firstParams.toString()}`);
-      const firstData = await firstRes.json();
-
-      const hasLatLng = !!(latParam && lngParam);
-      const userLat = hasLatLng ? parseFloat(latParam as string) : NaN;
-      const userLng = hasLatLng ? parseFloat(lngParam as string) : NaN;
-
-      let loadedClinics: Clinic[] = firstData.clinics || [];
-
-      //
-      // 2a. Fallback if we have coords but got 0 results:
-      //     Try again WITHOUT lat/lng so we at least get a wider list.
-      //
-      if (hasLatLng && loadedClinics.length === 0) {
-        try {
-          const noCoordParams = new URLSearchParams();
-          noCoordParams.set('per_page', '5000');
-          if (stateParam) noCoordParams.set('state', stateParam);
-          if (cityParam) noCoordParams.set('city', cityParam);
-          if (searchQuery) noCoordParams.set('q', searchQuery);
-
-          const broadRes = await fetch(
-            `/api/clinics?${noCoordParams.toString()}`
-          );
-          const broadData = await broadRes.json();
-          loadedClinics = broadData.clinics || [];
-        } catch (e) {
-          console.error('Fallback broad fetch (no coords) failed', e);
-        }
-      }
-
-      //
-      // 2b. Fallback if user searched something (like "cosmetic")
-      //     but backend STILL returned 0 after step 1 / 2a:
-      //     Pull a big list with NO q at all and fuzzy-filter here.
-      //
-      if (searchQuery && loadedClinics.length === 0) {
-        try {
-          const noQParams = new URLSearchParams();
-          noQParams.set('per_page', '5000');
-          if (stateParam) noQParams.set('state', stateParam);
-          if (cityParam) noQParams.set('city', cityParam);
-          // IMPORTANT: do NOT include `q`, and do NOT include lat/lng here.
-
-          const broadNoQRes = await fetch(
-            `/api/clinics?${noQParams.toString()}`
-          );
-          const broadNoQData = await broadNoQRes.json();
-          const universe: Clinic[] = broadNoQData.clinics || [];
-
-          const trimmed = searchQuery.trim();
-          const lowered = trimmed.toLowerCase();
-          const isZip = /^\d{5}$/.test(trimmed);
-
-          // Approximate the same logic used in handleSearch()
-          loadedClinics = universe.filter((c) => {
-            // Exact ZIP match
-            if (isZip) {
-              return c.postal_code === trimmed;
-            }
-
-            // Otherwise fuzzy match against multiple fields
-            const searchableText = `
-              ${c.display_name || ''}
-              ${c.formatted_address || ''}
-              ${c.city || ''}
-              ${c.state_code || ''}
-              ${Array.isArray(c.types) ? c.types.join(' ') : ''}
-              ${c.primary_type || ''}
-            `
-              .toLowerCase()
-              .replace(/\s+/g, ' ');
-
-            return searchableText.includes(lowered);
-          });
-        } catch (e) {
-          console.error(
-            'Fallback broad fetch (text search client-side) failed',
-            e
-          );
-        }
-      }
-
-      //
-      // 3. If we know the user's coords, sort results by nearest first
-      //
-      if (
-        hasLatLng &&
-        loadedClinics.length > 0 &&
-        !Number.isNaN(userLat) &&
-        !Number.isNaN(userLng)
-      ) {
-        loadedClinics = loadedClinics
-          .map((c: Clinic & { distance?: number }) => ({
-            ...c,
-            distance: calculateDistance(
-              { lat: userLat, lng: userLng },
-              {
-                lat: c.location?.lat ?? 0,
-                lng: c.location?.lng ?? 0,
-              }
-            ),
-          }))
-          .sort((a, b) => {
-            const da = a.distance ?? 0;
-            const db = b.distance ?? 0;
-            return da - db;
-          });
-      }
-
-      //
-      // 4. Commit to state
-      //
-      setClinics(loadedClinics);
-      setFilteredClinics(loadedClinics);
-    } catch (error) {
-      console.error('Error loading clinics:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // --- 3) If a q= is present, filter LOCALLY (name/address/types/primary_type/etc.)
+    //        Do NOT apply text filtering for the "open now" special — that is handled via filters.
+    let effectiveClinics: Clinic[] = loadedClinics;
+
+    if (qRaw && !wantsOpenNow) {
+      const isZip = /^\d{5}$/.test(qRaw);
+      effectiveClinics = loadedClinics.filter((c) => {
+        if (isZip) return c.postal_code === qRaw;
+
+        const searchable = [
+          c.display_name || '',
+          c.formatted_address || '',
+          c.city || '',
+          c.state_code || '',
+          (c.types || []).join(' '),
+          c.primary_type || '',
+        ]
+          .join(' ')
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+
+        return searchable.includes(q);
+      });
+    }
+
+    // --- 4) Distance ordering on the client when coords are known ---
+    if (
+      hasLatLng &&
+      effectiveClinics.length > 0 &&
+      !Number.isNaN(userLat) &&
+      !Number.isNaN(userLng)
+    ) {
+      effectiveClinics = effectiveClinics
+        .map((c: Clinic & { distance?: number }) => ({
+          ...c,
+          distance: calculateDistance(
+            { lat: userLat, lng: userLng },
+            { lat: c.location?.lat ?? 0, lng: c.location?.lng ?? 0 }
+          ),
+        }))
+        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)) as Clinic[];
+    }
+
+    // --- 5) Seed state:
+    // For plain text queries: set dataset to the locally-filtered subset.
+    // For "open now": keep full dataset and flip the filter so applyFilters() will narrow it.
+    setClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+    setFilteredClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+
+    if (wantsOpenNow) {
+      // trigger sidebar logic without user interaction
+      setFilters((prev) => ({ ...prev, open_now: true }));
+    }
+  } catch (error) {
+    console.error('Error loading clinics:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Load clinics whenever location/search context changes
   useEffect(() => {
