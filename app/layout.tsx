@@ -11,13 +11,9 @@ import dynamic from 'next/dynamic';
 // It's a client boundary, and Next will handle that.
 import { CompareProvider } from '@/contexts/CompareContext';
 
-// Lazy-load the floating compare bar, CLIENT ONLY (no SSR).
+// ⬅ Revert: no { ssr: false } here, because layout.tsx is a Server Component
 const CompareFloatingBar = dynamic(
-  () => import('@/components/CompareFloatingBar'),
-  {
-    ssr: false,
-    loading: () => null, // don't render anything while it hydrates
-  }
+  () => import('@/components/CompareFloatingBar')
 );
 
 const inter = Inter({ subsets: ['latin'] });
@@ -65,7 +61,7 @@ export const metadata: Metadata = {
     // google: 'your-google-verification-code',
   },
 
-  // ✅ favicon + manifest wiring
+  // ✅ favicon + manifest are still correct
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -104,7 +100,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Extra safety / fallback tags are fine to keep */}
+        {/* Fallback tags are safe to keep */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
@@ -116,11 +112,11 @@ export default function RootLayout({
         <CompareProvider>
           {children}
 
-          {/* Floating compare bar now loads client-side only, not in initial HTML */}
+          {/* Floating compare bar is still lazy via dynamic(), just not ssr:false */}
           <CompareFloatingBar />
         </CompareProvider>
 
-        {/* Google Analytics / Ads (lazy loaded, so not blocking render) */}
+        {/* Analytics (lazyOnload so they're not blocking paint) */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="lazyOnload"
