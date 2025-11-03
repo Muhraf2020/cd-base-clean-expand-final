@@ -7,7 +7,15 @@ export default function SearchBarClientWrapper() {
   const router = useRouter();
 
   const handleSearch = (query: string) => {
-    router.push(`/clinics?q=${encodeURIComponent(query)}`);
+    const trimmed = query.trim();
+    
+    // Only add query param if there's actual content
+    if (trimmed) {
+      router.push(`/clinics?q=${encodeURIComponent(trimmed)}`);
+    } else {
+      // Navigate without query param for "All" or empty searches
+      router.push('/clinics');
+    }
   };
 
   const handleLocationSearch = (lat: number, lng: number) => {
@@ -21,4 +29,3 @@ export default function SearchBarClientWrapper() {
     />
   );
 }
-
