@@ -279,25 +279,15 @@ function ClinicsContent() {
         }
       }
 
-      // --- 3) Query filtering (typo-tolerant + synonyms) ---
-      let effectiveClinics: Clinic[] = loadedClinics;
-      if (qRaw && !wantsOpenNow && !isAll) {
-        effectiveClinics = filterByQuery(loadedClinics, qRaw);
-        // Never return 0 just because of a typo — degrade to the full set
-        if (effectiveClinics.length === 0) {
-          effectiveClinics = loadedClinics;
-        }
-      }
-
-      // --- 4) Distance ordering on the client when coords are known ---
+      // --- 3) Distance ordering on the client when coords are known ---
       if (
         !isAll &&
         hasLatLng &&
-        effectiveClinics.length > 0 &&
+        loadedClinics.length > 0 &&
         !Number.isNaN(userLat) &&
         !Number.isNaN(userLng)
       ) {
-        effectiveClinics = effectiveClinics
+        loadedClinics = loadedClinics
           .map((c: Clinic & { distance?: number }) => ({
             ...c,
             distance: calculateDistance(
@@ -307,10 +297,10 @@ function ClinicsContent() {
           }))
           .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)) as Clinic[];
       }
-
-      // --- 5) Commit
-      setClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
-      setFilteredClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+      
+      // --- 4) Commit: Always store FULL dataset
+      setClinics(loadedClinics);
+      setFilteredClinics(loadedClinics);
 
       if (wantsOpenNow) {
         // trigger sidebar logic without user interaction
@@ -344,6 +334,25 @@ function ClinicsContent() {
     }
   }, [searchQuery]);
 
+  // Sync URL query param to filters state when URL changes
+  useEffect(() => {
+    const qRaw = (searchQuery || '').trim();
+    if (qRaw && qRaw.toLowerCase() !== 'all') {
+      // URL has a query, sync it to filters
+      const includesOpenNow = /\bopen\s*now\b/i.test(qRaw);
+      setFilters(prev => ({
+        ...prev,
+        query: qRaw,
+        open_now: includesOpenNow ? true : prev.open_now,
+      }));
+    } else if (!qRaw || qRaw.toLowerCase() === 'all') {
+      // No query or "All" was selected, clear query from filters
+      setFilters(prev => {
+        const { query, ...rest } = prev;
+        return rest as FilterOptions;
+      });
+    }
+  }, [searchQuery]);
   // Load clinics whenever location/search context changes
   useEffect(() => {
     loadClinics();
