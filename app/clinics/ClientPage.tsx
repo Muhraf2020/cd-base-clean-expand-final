@@ -235,7 +235,8 @@ function ClinicsContent() {
   };
 
   // ----------------------------------------------------
-  // Fetch clinics (no server-side ?q=) + local filtering
+  // ✅ FIX: Fetch clinics WITHOUT filtering
+  // Store FULL dataset in clinics state
   // ----------------------------------------------------
   const loadClinics = async () => {
     try {
@@ -244,8 +245,7 @@ function ClinicsContent() {
       // --- URL inputs ---
       const qRaw = (searchQuery || '').trim();
       const q = qRaw.toLowerCase();
-      const wantsOpenNow = /\bopen\s*now\b/.test(q); // treat "open now" as a real filter
-      const isAll = /^all$/.test(q);                 // special: 'All' forces nationwide
+      const isAll = /^all$/.test(q); // special: 'All' forces nationwide
 
       // --- 1) Build API URL WITHOUT ?q= (client handles text/services search) ---
       // If "All", force nationwide: do NOT include state/city/lat/lng.
@@ -271,7 +271,7 @@ function ClinicsContent() {
           let fbUrl = `/api/clinics?per_page=5000`;
           if (stateParam) fbUrl += `&state=${encodeURIComponent(stateParam)}`;
           if (cityParam) fbUrl += `&city=${encodeURIComponent(cityParam)}`;
-          const broad = await fetch(fbUrl); // NOTE: no lat/lng and no q
+          const broad = await fetch(fbUrl);
           const broadData = await broad.json();
           loadedClinics = broadData.clinics || [];
         } catch (e) {
@@ -279,7 +279,7 @@ function ClinicsContent() {
         }
       }
 
-      // --- 3) Distance ordering on the client when coords are known ---
+      // --- 3) ✅ Distance ordering on the client when coords are known ---
       if (
         !isAll &&
         hasLatLng &&
@@ -297,15 +297,12 @@ function ClinicsContent() {
           }))
           .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)) as Clinic[];
       }
-      
-      // --- 4) Commit: Always store FULL dataset
-      setClinics(loadedClinics);
-      setFilteredClinics(loadedClinics);
 
-      if (wantsOpenNow) {
-        // trigger sidebar logic without user interaction
-        setFilters((prev) => ({ ...prev, open_now: true }));
-      }
+      // --- 4) ✅ CRITICAL FIX: Always store FULL dataset ---
+      // Do NOT filter by query here - let applyFilters() handle ALL filtering
+      setClinics(loadedClinics);
+      // Don't set filteredClinics here - applyFilters() will do it
+
     } catch (error) {
       console.error('Error loading clinics:', error);
     } finally {
@@ -313,51 +310,30 @@ function ClinicsContent() {
     }
   };
 
-  // Load clinics whenever location/search context changes
-  // Sync URL query param to filters state when URL changes
-  useEffect(() => {
-    const qRaw = (searchQuery || '').trim();
-    if (qRaw && qRaw.toLowerCase() !== 'all') {
-      // URL has a query, sync it to filters
-      const includesOpenNow = /\bopen\s*now\b/i.test(qRaw);
-      setFilters(prev => ({
-        ...prev,
-        query: qRaw,
-        open_now: includesOpenNow ? true : prev.open_now,
-      }));
-    } else if (!qRaw || qRaw.toLowerCase() === 'all') {
-      // No query or "All" was selected, clear query from filters
-      setFilters(prev => {
-        const { query, ...rest } = prev;
-        return rest as FilterOptions;
-      });
-    }
-  }, [searchQuery]);
-
-  // Sync URL query param to filters state when URL changes
-  useEffect(() => {
-    const qRaw = (searchQuery || '').trim();
-    if (qRaw && qRaw.toLowerCase() !== 'all') {
-      // URL has a query, sync it to filters
-      const includesOpenNow = /\bopen\s*now\b/i.test(qRaw);
-      setFilters(prev => ({
-        ...prev,
-        query: qRaw,
-        open_now: includesOpenNow ? true : prev.open_now,
-      }));
-    } else if (!qRaw || qRaw.toLowerCase() === 'all') {
-      // No query or "All" was selected, clear query from filters
-      setFilters(prev => {
-        const { query, ...rest } = prev;
-        return rest as FilterOptions;
-      });
-    }
-  }, [searchQuery]);
-  // Load clinics whenever location/search context changes
+  // Load clinics whenever location context changes
   useEffect(() => {
     loadClinics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateParam, cityParam, searchQuery, latParam, lngParam]);
+  }, [stateParam, cityParam, latParam, lngParam]);
+
+  // ✅ NEW: Sync URL query parameter to filters state
+  useEffect(() => {
+    const qRaw = (searchQuery || '').trim();
+    if (qRaw) {
+      const includesOpenNow = /\bopen\s*now\b/i.test(qRaw);
+      setFilters((prev) => ({
+        ...prev,
+        query: qRaw,
+        open_now: includesOpenNow ? true : prev.open_now,
+      }));
+    } else {
+      // Clear query filter if no search param
+      setFilters((prev) => {
+        const { query, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [searchQuery]);
 
   // Local text search (SearchBar → onSearch) — "All" resets nationwide list
   const handleSearch = (query: string) => {
@@ -399,14 +375,14 @@ function ClinicsContent() {
       (a, b) => (a.distance ?? 0) - (b.distance ?? 0)
     );
 
-    setFilteredClinics(sorted as Clinic[]);
+    setClinics(sorted as Clinic[]);
   };
 
-  // Apply sidebar filters (rating, amenities, etc.) + query engine
+  // ✅ FIX: Apply ALL filters (including query) in one place
   const applyFilters = () => {
     let next = [...clinics];
 
-    // 0) Query filtering first so it composes with the rest
+    // 0) ✅ Query filtering FIRST (works with full dataset)
     const queryStrRaw = ((filters as any).query ?? '').toString().trim();
     const isAllQuery = /^all$/i.test(queryStrRaw);
     const queryStr = isAllQuery ? '' : queryStrRaw;
@@ -489,7 +465,7 @@ function ClinicsContent() {
       });
     }
 
-    // 3) Absolute fallback: never show an empty screen
+    // 3) ✅ Absolute fallback: never show an empty screen
     if (next.length === 0) next = [...clinics];
 
     setFilteredClinics(next);
