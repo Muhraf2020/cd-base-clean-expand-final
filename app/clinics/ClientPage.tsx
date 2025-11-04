@@ -250,18 +250,24 @@ function ClinicsContent() {
       const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
       const hasQueryWithoutLocation = qRaw && !isAll && !hasLocation;
 
-      // --- 1) Build API URL WITHOUT ?q= (client handles text/services search) ---
-      // ✅ IMPROVED: Explicitly fetch nationwide when there's a query but no location
-      // This ensures users searching from home page get results
+      // --- 1) Build API URL ---
+      // ✅ FIX: When searching without location (home page), pass query to API
+      // This lets the database do initial filtering, then client refines results
       const fetchNationwide = isAll || hasQueryWithoutLocation;
-      
+
       let url = `/api/clinics?per_page=5000`;
-      
-      // Only add location filters if we have location AND not forcing nationwide
+
+      // Add location filters if we have location AND not forcing nationwide
       if (!fetchNationwide && hasLocation) {
         if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
         if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
         if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
+      }
+
+      // ✅ NEW: Pass query to API when searching nationwide (home page searches)
+      // This reduces dataset size from 5000 to ~50-500 relevant clinics
+      if (hasQueryWithoutLocation && qRaw) {
+        url += `&q=${encodeURIComponent(qRaw)}`;
       }
 
       console.log('Fetching clinics:', { url, fetchNationwide, hasLocation, hasQueryWithoutLocation, qRaw });
