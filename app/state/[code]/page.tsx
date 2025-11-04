@@ -1,4 +1,8 @@
 // app/state/[code]/page.tsx
+
+// Force dynamic rendering - don't pre-render at build time
+export const dynamic = 'force-dynamic';
+
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import CityGrid from '@/components/CityGrid';

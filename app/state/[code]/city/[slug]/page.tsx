@@ -1,4 +1,8 @@
 // app/state/[code]/city/[slug]/page.tsx
+
+// Force dynamic rendering - don't pre-render at build time
+export const dynamic = 'force-dynamic';
+
 import type { Metadata } from 'next';
 import CityClientPage from './CityClientPage';
 import { createSupabaseClient } from '@/lib/supabase';
