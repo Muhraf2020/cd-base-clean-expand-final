@@ -247,30 +247,16 @@ function ClinicsContent() {
       const qRaw = (searchQuery || '').trim();
       const q = qRaw.toLowerCase();
       const isAll = /^all$/.test(q); // special: 'All' forces nationwide
-      const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
-      const hasQueryWithoutLocation = qRaw && !isAll && !hasLocation;
 
-      // --- 1) Build API URL ---
-      // ✅ FIX: When searching without location (home page), pass query to API
-      // This lets the database do initial filtering, then client refines results
-      const fetchNationwide = isAll || hasQueryWithoutLocation;
-
+      // --- 1) Build API URL (match derma-finder exactly) ---
       let url = `/api/clinics?per_page=5000`;
-
-      // Add location filters if we have location AND not forcing nationwide
-      if (!fetchNationwide && hasLocation) {
+      if (!isAll) {
         if (stateParam) url += `&state=${encodeURIComponent(stateParam)}`;
         if (cityParam) url += `&city=${encodeURIComponent(cityParam)}`;
         if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
       }
 
-      // ✅ IMPORTANT: Do NOT pass query to API for nationwide searches
-      // The API only searches basic fields (name, address, type, city, state)
-      // Client-side filtering searches rich fields (services, specialties, conditions)
-      // For location-based searches, we can pass query to API for performance
-      // (Removed: if (hasQueryWithoutLocation && qRaw) url += `&q=${qRaw}`)
-
-      console.log('Fetching clinics:', { url, fetchNationwide, hasLocation, hasQueryWithoutLocation, qRaw });
+      console.log('Fetching clinics:', { url, isAll, qRaw });
 
       const res = await fetch(url);
       const data = await res.json();
@@ -282,7 +268,7 @@ function ClinicsContent() {
       let loadedClinics: Clinic[] = data.clinics || [];
 
       // --- 2) Fallback: if radius search returned nothing, fetch a broader list (no coords) ---
-      if (!fetchNationwide && hasLatLng && loadedClinics.length === 0) {
+      if (!isAll && hasLatLng && loadedClinics.length === 0) {
         try {
           console.log('Fallback: radius search returned nothing, trying broader fetch');
           let fbUrl = `/api/clinics?per_page=5000`;
@@ -336,8 +322,9 @@ function ClinicsContent() {
       }
 
     } catch (error) {
-      console.error('Error loading clinics:', error);
-      setClinics([]); // Ensure we set empty array on error
+      console.error('❌ Error loading clinics:', error);
+      setClinics([]);
+      setFilteredClinics([]); // Also set filtered to empty
     } finally {
       setLoading(false);
     }
