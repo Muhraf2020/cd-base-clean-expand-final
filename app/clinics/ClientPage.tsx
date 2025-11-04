@@ -264,11 +264,11 @@ function ClinicsContent() {
         if (latParam && lngParam) url += `&lat=${latParam}&lng=${lngParam}`;
       }
 
-      // ✅ NEW: Pass query to API when searching nationwide (home page searches)
-      // This reduces dataset size from 5000 to ~50-500 relevant clinics
-      if (hasQueryWithoutLocation && qRaw) {
-        url += `&q=${encodeURIComponent(qRaw)}`;
-      }
+      // ✅ IMPORTANT: Do NOT pass query to API for nationwide searches
+      // The API only searches basic fields (name, address, type, city, state)
+      // Client-side filtering searches rich fields (services, specialties, conditions)
+      // For location-based searches, we can pass query to API for performance
+      // (Removed: if (hasQueryWithoutLocation && qRaw) url += `&q=${qRaw}`)
 
       console.log('Fetching clinics:', { url, fetchNationwide, hasLocation, hasQueryWithoutLocation, qRaw });
 
@@ -425,12 +425,12 @@ function ClinicsContent() {
     const isAllQuery = /^all$/i.test(queryStrRaw);
     const queryStr = isAllQuery ? '' : queryStrRaw;
 
-    // ✅ IMPORTANT: Only apply client-side query filtering if we have location context
-    // When searching nationwide (home page), trust the API results (already filtered at DB level)
+    // ✅ CHANGED: Always apply client-side query filtering when there's a query
+    // The client-side filter is comprehensive (synonyms, services, specialties, etc.)
+    // We need this especially for nationwide searches where API doesn't filter
     const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
-    const shouldClientFilter = hasLocation; // Only filter client-side for city/state pages
 
-    if (queryStr && shouldClientFilter) {
+    if (queryStr) {
       const scored = filterByQuery(next, queryStr);
       next = scored.length > 0 ? scored : next; // fallback to all if no matches
     }
@@ -516,7 +516,6 @@ function ClinicsContent() {
       originalCount: clinics.length,
       filteredCount: next.length,
       hasLocation,
-      shouldClientFilter,
       activeFilters: Object.keys(filters).filter(k => filters[k as keyof FilterOptions]),
       sampleClinics: clinics.slice(0, 2).map(c => ({
         name: c.display_name,
