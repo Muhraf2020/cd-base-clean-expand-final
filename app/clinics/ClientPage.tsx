@@ -296,15 +296,26 @@ function ClinicsContent() {
         }
       }
 
-      // --- 3) ✅ Distance ordering on the client when coords are known ---
+      // --- 3) ✅ Query filtering (typo-tolerant + synonyms) ---
+      const wantsOpenNow = /\bopen\s*now\b/.test(q);
+      let effectiveClinics: Clinic[] = loadedClinics;
+
+      if (qRaw && !wantsOpenNow && !isAll) {
+        effectiveClinics = filterByQuery(loadedClinics, qRaw);
+        if (effectiveClinics.length === 0) {
+          effectiveClinics = loadedClinics; // fallback if no matches
+        }
+      }
+
+      // --- 4) ✅ Distance ordering on the client when coords are known ---
       if (
-        !fetchNationwide &&
+        !isAll &&
         hasLatLng &&
-        loadedClinics.length > 0 &&
+        effectiveClinics.length > 0 &&
         !Number.isNaN(userLat) &&
         !Number.isNaN(userLng)
       ) {
-        loadedClinics = loadedClinics
+        effectiveClinics = effectiveClinics
           .map((c: Clinic & { distance?: number }) => ({
             ...c,
             distance: calculateDistance(
@@ -315,11 +326,14 @@ function ClinicsContent() {
           .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)) as Clinic[];
       }
 
-      // --- 4) ✅ CRITICAL FIX: Always store FULL dataset ---
-      // Do NOT filter by query here - let applyFilters() handle ALL filtering
-      console.log('Loaded clinics:', loadedClinics.length);
-      setClinics(loadedClinics);
-      // Don't set filteredClinics here - applyFilters() will do it
+      // --- 5) ✅ Commit: Set BOTH clinics and filteredClinics
+      console.log('Loaded clinics:', loadedClinics.length, 'Effective:', effectiveClinics.length);
+      setClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+      setFilteredClinics(wantsOpenNow ? loadedClinics : effectiveClinics);
+
+      if (wantsOpenNow) {
+        setFilters((prev) => ({ ...prev, open_now: true }));
+      }
 
     } catch (error) {
       console.error('Error loading clinics:', error);
@@ -335,40 +349,16 @@ function ClinicsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateParam, cityParam, latParam, lngParam, searchQuery]); // ✅ ADDED searchQuery to deps
 
-  // ✅ Sync URL query parameter to filters state
+  // ✅ Note: Query filtering is now handled in loadClinics, not in applyFilters
+  // This effect is just for "open now" detection and other URL-based filter state
   useEffect(() => {
+    // Clear any old query-based filter state when URL changes
+    // (query filtering happens in loadClinics now)
     const qRaw = (searchQuery || '').trim();
-
-    // ✅ FIX: Check if we have location context
-    // If no location context (nationwide search from home page), start with clean filters
-    // If location context (city/state page), preserve existing filters
-    const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
-
-    if (qRaw) {
-      const includesOpenNow = /\bopen\s*now\b/i.test(qRaw);
-
-      if (hasLocation) {
-        // City/state page: preserve existing filters, just add/update query
-        setFilters((prev) => ({
-          ...prev,
-          query: qRaw,
-          open_now: includesOpenNow ? true : prev.open_now,
-        }));
-      } else {
-        // Nationwide search from home page: start fresh with only the query
-        setFilters({
-          query: qRaw,
-          ...(includesOpenNow && { open_now: true }),
-        } as FilterOptions);
-      }
-    } else {
-      // Clear query filter if no search param
-      setFilters((prev) => {
-        const { query, ...rest } = prev;
-        return rest;
-      });
+    if (qRaw && /\bopen\s*now\b/i.test(qRaw)) {
+      setFilters((prev) => ({ ...prev, open_now: true }));
     }
-  }, [searchQuery, stateParam, cityParam, latParam, lngParam]);
+  }, [searchQuery]);
 
   // Local text search (SearchBar → onSearch) — "All" resets nationwide list
   const handleSearch = (query: string) => {
@@ -416,24 +406,12 @@ function ClinicsContent() {
     setClinics(sorted as Clinic[]);
   };
 
-  // ✅ FIX: Apply ALL filters (including query) in one place
+  // ✅ FIX: Apply sidebar filters (query filtering already done in loadClinics)
   const applyFilters = () => {
     let next = [...clinics];
 
-    // 0) ✅ Query filtering FIRST (works with full dataset)
-    const queryStrRaw = ((filters as any).query ?? '').toString().trim();
-    const isAllQuery = /^all$/i.test(queryStrRaw);
-    const queryStr = isAllQuery ? '' : queryStrRaw;
-
-    // ✅ CHANGED: Always apply client-side query filtering when there's a query
-    // The client-side filter is comprehensive (synonyms, services, specialties, etc.)
-    // We need this especially for nationwide searches where API doesn't filter
-    const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
-
-    if (queryStr) {
-      const scored = filterByQuery(next, queryStr);
-      next = scored.length > 0 ? scored : next; // fallback to all if no matches
-    }
+    // Note: Query filtering is done in loadClinics(), not here
+    // This function only applies sidebar filters (rating, open_now, wheelchair, etc.)
 
     // 1) Standard filters
     if (filters.rating_min) {
@@ -511,20 +489,11 @@ function ClinicsContent() {
     // 3) ✅ Absolute fallback: never show an empty screen
     if (next.length === 0) next = [...clinics];
 
-    console.log('🔍 Applied filters:', {
-      queryStr,
+    console.log('🔍 Applied sidebar filters:', {
       originalCount: clinics.length,
       filteredCount: next.length,
-      hasLocation,
       activeFilters: Object.keys(filters).filter(k => filters[k as keyof FilterOptions]),
-      sampleClinics: clinics.slice(0, 2).map(c => ({
-        name: c.display_name,
-        city: c.city,
-        state: c.state_code,
-        rating: c.rating,
-        open: c.current_open_now
-      })),
-      sampleFiltered: next.slice(0, 2).map(c => ({
+      sampleResults: next.slice(0, 2).map(c => ({
         name: c.display_name,
         city: c.city,
         state: c.state_code
