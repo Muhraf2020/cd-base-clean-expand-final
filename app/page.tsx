@@ -3,6 +3,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import Logo from '@/components/Logo';
 import ComparisonFeatureBox from '@/components/ComparisonFeatureBox';
+import NearMeButton from '@/components/NearMeButton'; // ⬅️ add this
 
 // Lazy-load interactive client islands (no { ssr:false } here)
 const SearchBarClient = dynamic(() => import('@/components/SearchBarClientWrapper'));
@@ -40,15 +41,21 @@ export default function Home() {
             <p className="text-base sm:text-xl lg:text-2xl text-blue-100 mb-6 sm:mb-8 max-w-3xl mx-auto px-4">
               Your comprehensive directory of dermatology clinics across the United States
             </p>
+      
             <Link
               href="/add-clinic"
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Add Your Clinic
             </Link>
+      
+            <div className="mt-4 flex justify-center">
+              <NearMeButton />
+            </div>
           </div>
         </div>
       </header>
+
 
       {/* Sticky Search Bar (client island) — disabled on Home page */}
       {false && (
