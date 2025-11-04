@@ -3,7 +3,6 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import Logo from '@/components/Logo';
 import ComparisonFeatureBox from '@/components/ComparisonFeatureBox';
-import NearMeButton from '@/components/NearMeButton'; // ⬅️ add this
 
 // Lazy-load interactive client islands (no { ssr:false } here)
 const SearchBarClient = dynamic(() => import('@/components/SearchBarClientWrapper'));
@@ -48,10 +47,6 @@ export default function Home() {
             >
               Add Your Clinic
             </Link>
-      
-            <div className="mt-4 flex justify-center">
-              <NearMeButton />
-            </div>
           </div>
         </div>
       </header>
