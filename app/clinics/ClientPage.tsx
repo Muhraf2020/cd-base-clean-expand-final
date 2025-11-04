@@ -360,16 +360,13 @@ function ClinicsContent() {
     }
 
     const includesOpenNow = /\bopen\s*now\b/i.test(trimmed);
-    
-    // ✅ Update URL with query parameter
-    const params = new URLSearchParams();
-    params.set('q', trimmed);
-    if (stateParam) params.set('state', stateParam);
-    if (cityParam) params.set('city', cityParam);
-    if (latParam) params.set('lat', latParam);
-    if (lngParam) params.set('lng', lngParam);
-    
-    router.push(`/clinics?${params.toString()}`);
+    setFilters((prev) =>
+      ({
+        ...prev,
+        query: trimmed || undefined,
+        open_now: includesOpenNow ? true : prev.open_now,
+      } as FilterOptions)
+    );
   };
 
   // Local "Near Me" sort (SearchBar → onLocationSearch).
@@ -393,12 +390,19 @@ function ClinicsContent() {
     setClinics(sorted as Clinic[]);
   };
 
-  // ✅ FIX: Apply sidebar filters (query filtering already done in loadClinics)
+  // Apply sidebar filters (rating, amenities, etc.) + query engine
   const applyFilters = () => {
     let next = [...clinics];
 
-    // Note: Query filtering is done in loadClinics(), not here
-    // This function only applies sidebar filters (rating, open_now, wheelchair, etc.)
+    // 0) Query filtering first so it composes with the rest
+    const queryStrRaw = ((filters as any).query ?? '').toString().trim();
+    const isAllQuery = /^all$/i.test(queryStrRaw);
+    const queryStr = isAllQuery ? '' : queryStrRaw;
+
+    if (queryStr) {
+      const scored = filterByQuery(next, queryStr);
+      next = scored.length > 0 ? scored : next; // never 0 due to typos
+    }
 
     // 1) Standard filters
     if (filters.rating_min) {
