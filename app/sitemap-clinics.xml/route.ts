@@ -1,6 +1,10 @@
 // app/sitemap-clinics.xml/route.ts
-// 
+//
 // https://dermaclinicnearme.com/sitemap-clinics.xml
+
+// Force dynamic rendering - don't pre-render at build time
+export const dynamic = 'force-dynamic';
+
 import { createSupabaseClient } from '@/lib/supabase';
 
 // Do NOT export runtime='edge' here.

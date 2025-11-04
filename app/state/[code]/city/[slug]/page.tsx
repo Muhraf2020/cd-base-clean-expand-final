@@ -1,4 +1,8 @@
 // app/state/[code]/city/[slug]/page.tsx
+
+// Skip pre-rendering if Supabase credentials not available (build time)
+export const dynamic = process.env.NEXT_PUBLIC_SUPABASE_URL ? 'auto' : 'force-dynamic';
+
 import type { Metadata } from 'next';
 import CityClientPage from './CityClientPage';
 import { createSupabaseClient } from '@/lib/supabase';

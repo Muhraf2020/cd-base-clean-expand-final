@@ -5,6 +5,10 @@ import CityGrid from '@/components/CityGrid';
 import type { Metadata } from 'next';
 import { createSupabaseClient } from '@/lib/supabase';
 
+// Skip pre-rendering if Supabase credentials not available (build time)
+// This allows the page to render at runtime when credentials are available
+export const dynamic = process.env.NEXT_PUBLIC_SUPABASE_URL ? 'auto' : 'force-dynamic';
+
 // Map 2-letter state codes to readable names
 const US_STATES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas',
