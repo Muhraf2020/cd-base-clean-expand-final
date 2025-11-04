@@ -1,7 +1,8 @@
 // app/state/[code]/city/[slug]/page.tsx
 
-// Skip pre-rendering if Supabase credentials not available (build time)
-export const dynamic = process.env.NEXT_PUBLIC_SUPABASE_URL ? 'auto' : 'force-dynamic';
+// Force dynamic rendering - pages will render at runtime with database access
+// This prevents build-time errors when Supabase credentials aren't available
+export const dynamic = 'force-dynamic';
 
 import type { Metadata } from 'next';
 import CityClientPage from './CityClientPage';
