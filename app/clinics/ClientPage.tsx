@@ -338,13 +338,29 @@ function ClinicsContent() {
   // ✅ Sync URL query parameter to filters state
   useEffect(() => {
     const qRaw = (searchQuery || '').trim();
+
+    // ✅ FIX: Check if we have location context
+    // If no location context (nationwide search from home page), start with clean filters
+    // If location context (city/state page), preserve existing filters
+    const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
+
     if (qRaw) {
       const includesOpenNow = /\bopen\s*now\b/i.test(qRaw);
-      setFilters((prev) => ({
-        ...prev,
-        query: qRaw,
-        open_now: includesOpenNow ? true : prev.open_now,
-      }));
+
+      if (hasLocation) {
+        // City/state page: preserve existing filters, just add/update query
+        setFilters((prev) => ({
+          ...prev,
+          query: qRaw,
+          open_now: includesOpenNow ? true : prev.open_now,
+        }));
+      } else {
+        // Nationwide search from home page: start fresh with only the query
+        setFilters({
+          query: qRaw,
+          ...(includesOpenNow && { open_now: true }),
+        } as FilterOptions);
+      }
     } else {
       // Clear query filter if no search param
       setFilters((prev) => {
@@ -352,7 +368,7 @@ function ClinicsContent() {
         return rest;
       });
     }
-  }, [searchQuery]);
+  }, [searchQuery, stateParam, cityParam, latParam, lngParam]);
 
   // Local text search (SearchBar → onSearch) — "All" resets nationwide list
   const handleSearch = (query: string) => {
@@ -499,8 +515,21 @@ function ClinicsContent() {
       queryStr,
       originalCount: clinics.length,
       filteredCount: next.length,
-      filters,
-      sampleFiltered: next.slice(0, 3).map(c => ({ name: c.display_name, city: c.city, state: c.state_code }))
+      hasLocation,
+      shouldClientFilter,
+      activeFilters: Object.keys(filters).filter(k => filters[k as keyof FilterOptions]),
+      sampleClinics: clinics.slice(0, 2).map(c => ({
+        name: c.display_name,
+        city: c.city,
+        state: c.state_code,
+        rating: c.rating,
+        open: c.current_open_now
+      })),
+      sampleFiltered: next.slice(0, 2).map(c => ({
+        name: c.display_name,
+        city: c.city,
+        state: c.state_code
+      }))
     });
 
     setFilteredClinics(next);
