@@ -409,7 +409,12 @@ function ClinicsContent() {
     const isAllQuery = /^all$/i.test(queryStrRaw);
     const queryStr = isAllQuery ? '' : queryStrRaw;
 
-    if (queryStr) {
+    // ✅ IMPORTANT: Only apply client-side query filtering if we have location context
+    // When searching nationwide (home page), trust the API results (already filtered at DB level)
+    const hasLocation = !!(stateParam || cityParam || (latParam && lngParam));
+    const shouldClientFilter = hasLocation; // Only filter client-side for city/state pages
+
+    if (queryStr && shouldClientFilter) {
       const scored = filterByQuery(next, queryStr);
       next = scored.length > 0 ? scored : next; // fallback to all if no matches
     }
@@ -490,11 +495,12 @@ function ClinicsContent() {
     // 3) ✅ Absolute fallback: never show an empty screen
     if (next.length === 0) next = [...clinics];
 
-    console.log('Applied filters:', { 
-      queryStr, 
-      originalCount: clinics.length, 
+    console.log('🔍 Applied filters:', {
+      queryStr,
+      originalCount: clinics.length,
       filteredCount: next.length,
-      filters 
+      filters,
+      sampleFiltered: next.slice(0, 3).map(c => ({ name: c.display_name, city: c.city, state: c.state_code }))
     });
 
     setFilteredClinics(next);
