@@ -9,6 +9,9 @@
 //
 // It does NOT touch /sitemap-clinics.xml (clinic detail URLs).
 
+// Force dynamic rendering - don't pre-render at build time
+export const dynamic = 'force-dynamic';
+
 import { createSupabaseClient } from '@/lib/supabase';
 
 // Use the same idea as robots.ts → prefer SITE_URL, fall back to NEXT_PUBLIC_SITE_URL, then default

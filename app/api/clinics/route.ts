@@ -301,9 +301,24 @@ export async function GET(request: Request) {
       // NOTE: .or() can only be called once effectively, so we keep this
       // as the only .or() in the DB query to avoid collisions with
       // pediatric/cosmetic/etc. Those we handle client-side below.
-      query = query.or(
-        `display_name.ilike.%${q}%,formatted_address.ilike.%${q}%`
-      );
+      //
+      // ✅ ENHANCED: Search in more fields when no location context is provided
+      // This helps home page searches find relevant clinics
+      const hasLocationContext = !!(state || city);
+
+      if (hasLocationContext) {
+        // City/state pages: simple name/address search (client will do advanced filtering)
+        query = query.or(
+          `display_name.ilike.%${q}%,formatted_address.ilike.%${q}%`
+        );
+      } else {
+        // Nationwide search from home page: cast broader net at DB level
+        // Search in name, address, type, and city to find relevant clinics
+        // Client-side will then refine with synonyms, fuzzy matching, etc.
+        query = query.or(
+          `display_name.ilike.%${q}%,formatted_address.ilike.%${q}%,primary_type.ilike.%${q}%,city.ilike.%${q}%,state_code.ilike.%${q}%`
+        );
+      }
     }
 
     // Minimum rating filter

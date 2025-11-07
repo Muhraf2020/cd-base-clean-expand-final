@@ -5,6 +5,10 @@ import CityGrid from '@/components/CityGrid';
 import type { Metadata } from 'next';
 import { createSupabaseClient } from '@/lib/supabase';
 
+// Force dynamic rendering - pages will render at runtime with database access
+// This prevents build-time errors when Supabase credentials aren't available
+export const dynamic = 'force-dynamic';
+
 // Map 2-letter state codes to readable names
 const US_STATES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas',

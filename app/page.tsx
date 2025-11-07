@@ -52,14 +52,12 @@ export default function Home() {
       </header>
 
 
-      {/* Sticky Search Bar (client island) — disabled on Home page */}
-      {false && (
-        <div className="sticky top-0 z-50 bg-white shadow-md" role="search">
-          <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4">
-            <SearchBarClient />
-          </div>
+      {/* Sticky Search Bar (client island) — ✅ ENABLED */}
+      <div className="sticky top-0 z-50 bg-white shadow-md" role="search">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-4">
+          <SearchBarClient />
         </div>
-      )}
+      </div>
 
       {/* Stats Section (client island) */}
       <main id="content" className="contents">

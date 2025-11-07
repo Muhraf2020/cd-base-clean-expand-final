@@ -1,4 +1,9 @@
 // app/state/[code]/city/[slug]/page.tsx
+
+// Force dynamic rendering - pages will render at runtime with database access
+// This prevents build-time errors when Supabase credentials aren't available
+export const dynamic = 'force-dynamic';
+
 import type { Metadata } from 'next';
 import CityClientPage from './CityClientPage';
 import { createSupabaseClient } from '@/lib/supabase';
